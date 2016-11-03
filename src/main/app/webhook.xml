@@ -15,47 +15,27 @@ http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/jso
     <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="10005" doc:name="HTTP Listener Configuration"/>
     <http:request-config name="API_GATEWAY" host="${api.host}" port="${api.port}" basePath="/" responseTimeout="30000" doc:name="HTTP Request Configuration"/>
     <context:property-placeholder location="${mule.env}.properties"/>
+    <http:request-config name="Slackwebhook" protocol="HTTPS" host="hooks.slack.com" port="443" basePath="/" doc:name="HTTP Request Configuration">
+        <http:proxy host="${proxy.host}" port="80"/>
+    </http:request-config>
 <flow name="slack_webhook">
         <http:listener config-ref="HTTP_Listener_Configuration" path="/webhook" allowedMethods="GET, POST" doc:name="/webhook"/>
         <logger message="Received request from Slack: #[payload]" level="INFO" doc:name="Received request from Slack"/>
         <set-variable variableName="token" value="#[payload['token']!=null ? payload['token'] : '']" doc:name="Set token"/>
         <set-variable variableName="token_slack" value="${slack.token}" doc:name="Set token_slack"/>
-        <choice doc:name="Verify request came from Slack">
-            <when expression="#[flowVars.token!=flowVars.token_slack]">
-                <dw:transform-message doc:name="Error: not slack">
-                    <dw:set-payload><![CDATA[%dw 1.0
-%output application/json
----
-{
-	"text": "You're not Slack. Not allowed."
-}]]></dw:set-payload>
-                </dw:transform-message>
-                <dw:transform-message doc:name="Transform Message">
-                <dw:set-payload><![CDATA[%dw 1.0
-%output application/json
----
-{
-	"text": "Token not valid.",
-	"code": "412"
-}]]></dw:set-payload>
-            </dw:transform-message>
-            <set-property propertyName="http.status" value="#[412]" doc:name="Set http status 412 (Niet voldaan aan vooraf gestelde voorwaarde)"/>
+        <set-variable variableName="command" value="#[payload['command']]" doc:name="Set command"/>
+        <set-variable variableName="text" value="#[payload['text']]" doc:name="Set text"/>
+        <set-variable variableName="response_url" value="#[payload['response_url']]" doc:name="Set response_url (in case longer than 3 seconds to generate response)"/>
+        <set-variable variableName="response_url_path" value="#[flowVars.response_url.substring(flowVars.response_url.indexOf('commands'))]" doc:name="Set response_url_path"/>
+        <choice doc:name="/avo , /mam or /ams ?">
+            <when expression="#[flowVars.command.equals('/ams')]">
+                <flow-ref name="slackAMS" doc:name="slackAMS"/>
+            </when>
+            <when expression="#[flowVars.command.equals('/mam')]">
+                <flow-ref name="slackMAM" doc:name="slackMAM"/>
             </when>
             <otherwise>
-                <set-variable variableName="command" value="#[payload['command']]" doc:name="Set command"/>
-                <set-variable variableName="text" value="#[payload['text']]" doc:name="Set text"/>
-                <set-variable variableName="response_url" value="#[payload['response_url']]" doc:name="Set response_url (in case longer than 3 seconds to generate response)"/>
-                <choice doc:name="/avo , /mam or /ams ?">
-                    <when expression="#[flowVars.command.equals('/ams')]">
-                        <flow-ref name="slackAMS" doc:name="slackAMS"/>
-                    </when>
-                    <when expression="#[flowVars.command.equals('/mam')]">
-                        <flow-ref name="slackMAM" doc:name="slackMAM"/>
-                    </when>
-                    <otherwise>
-                        <flow-ref name="slackAvO" doc:name="slackAvO"/>
-                    </otherwise>
-                </choice>
+                <flow-ref name="slackAvO" doc:name="slackAvO"/>
             </otherwise>
         </choice>
     </flow>
@@ -115,13 +95,65 @@ http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/jso
                 <byte-array-to-object-transformer doc:name="Byte Array to Object"/>
                 <json:json-to-object-transformer returnClass="java.util.HashMap" doc:name="JSON to Object"/>
                 <set-variable variableName="amount_users" value="#[payload.get('aantal_users')]" doc:name="Set amount_users"/>
+                <set-variable variableName="amount_students" value="#[payload.get('aantal_studenten')]" doc:name="Set amount_students"/>
+                <set-variable variableName="amount_docenten" value="#[payload.get('aantal_docenten')]" doc:name="Set amount_docenten"/>
                 <dw:transform-message doc:name="Transform Message">
                     <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
 {
 	"response_type": "in_channel",
-	"text": "Aantal users: " ++ flowVars.amount_users
+	"text": "# users: " ++ flowVars.amount_users ++ "\n# docenten: " ++ flowVars.amount_docenten ++ "\n# studenten: " ++ flowVars.amount_students
+}]]></dw:set-payload>
+                </dw:transform-message>
+            </when>
+            <when expression="#[flowVars.text=='items']">
+                <logger message="items" level="INFO" doc:name="items"/>
+            </when>
+            <otherwise>
+                <dw:transform-message doc:name="Transform Message">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"response_type": "in_channel",
+	"text": "Unknown..."
+}]]></dw:set-payload>
+                </dw:transform-message>
+            </otherwise>
+        </choice>
+    </sub-flow>
+    <sub-flow name="slackMAM">
+        <choice doc:name="What's the text?">
+            <when expression="#[flowVars.text=='vrt']">
+                <logger message="vrt" level="INFO" doc:name="vrt"/>
+                <dw:transform-message doc:name="Answer fast">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"response_type": "in_channel",
+	"text": "/mam vrt:"
+}]]></dw:set-payload>
+                </dw:transform-message>
+                <async doc:name="Async">
+                    <flow-ref name="RequestVRTDelay" doc:name="RequestVRTDelay"/>
+                </async>
+            </when>
+            <when expression="#[flowVars.text=='items']">
+                <logger message="items" level="INFO" doc:name="items"/>
+                <http:request config-ref="API_GATEWAY" path="/api/report/global" method="GET" doc:name="Request /api/report/global"/>
+                <byte-array-to-object-transformer doc:name="Byte Array to Object"/>
+                <json:json-to-object-transformer returnClass="java.util.HashMap" doc:name="JSON to Object"/>
+                <set-variable variableName="items" value="#[payload.get('archived').get('total').get('amount').get('ok')]" doc:name="Set items"/>
+                <set-variable variableName="petabytes" value="#[(float) payload.get('archived').get('total').get('bytes').get('ok')/1024/1024/1024/1024/1024]" doc:name="Set petabytes"/>
+                <dw:transform-message doc:name="Build response">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"response_type": "in_channel",
+	"text": "#Items: " ++ flowVars.items ++ "\n#Petabytes: " ++ flowVars.petabytes
 }]]></dw:set-payload>
                 </dw:transform-message>
             </when>
@@ -138,17 +170,24 @@ http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/jso
             </otherwise>
         </choice>
     </sub-flow>
-    <sub-flow name="slackMAM">
+    <flow name="RequestVRTDelay">
+        <http:request config-ref="API_GATEWAY" path="/api/vrt/delay" method="GET" doc:name="Request /api/vrt/delay"/>
+        <byte-array-to-object-transformer doc:name="Byte Array to Object"/>
+        <json:json-to-object-transformer returnClass="java.util.HashMap" doc:name="JSON to Object"/>
+        <set-variable variableName="gemiddelde_starttijd" value="#[payload.get('gemiddelde_starttijd')]" doc:name="Set gemiddelde_starttijd"/>
+        <set-variable variableName="gemiddelde_duur" value="#[payload.get('gemiddelde_duur').get('value')]" doc:name="Set gemiddelde_duur"/>
         <dw:transform-message doc:name="Build response">
             <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
 {
 	"response_type": "in_channel",
-	"text": "Coming soon!"
+	"text": "Gemiddelde duur overdracht VRT - VIAA archief: " ++ flowVars.gemiddelde_duur ++ "\nOpvraagtijd van laatste geïngeste item: " ++ flowVars.gemiddelde_starttijd
 }]]></dw:set-payload>
         </dw:transform-message>
-    </sub-flow>
+        <object-to-string-transformer doc:name="Object to String"/>
+        <http:request config-ref="Slackwebhook" path="#[flowVars.response_url_path]" method="POST" doc:name="Send response to response_url just in case it takes longer than 3sec"/>
+    </flow>
     <sub-flow name="slackAMS">
         <dw:transform-message doc:name="Build response">
             <dw:set-payload><![CDATA[%dw 1.0
