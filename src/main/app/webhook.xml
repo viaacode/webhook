@@ -91,19 +91,28 @@ http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/jso
             </when>
             <when expression="#[flowVars.text=='users']">
                 <logger message="Text: #[flowVars.text]" level="INFO" doc:name="users"/>
+                <set-payload value="#[&quot;&quot;]" doc:name="Set Payload"/>
                 <http:request config-ref="API_GATEWAY" path="/api/avo/users/count" method="GET" doc:name="Request /api/avo/users/count"/>
-                <byte-array-to-object-transformer doc:name="Byte Array to Object"/>
-                <json:json-to-object-transformer returnClass="java.util.HashMap" doc:name="JSON to Object"/>
-                <set-variable variableName="amount_users" value="#[payload.get('aantal_users')]" doc:name="Set amount_users"/>
-                <set-variable variableName="amount_students" value="#[payload.get('aantal_studenten')]" doc:name="Set amount_students"/>
-                <set-variable variableName="amount_docenten" value="#[payload.get('aantal_docenten')]" doc:name="Set amount_docenten"/>
+                <json:json-to-object-transformer  doc:name="JSON to Object"/>
+                <set-variable variableName="administrator" value="#[payload.get('administrator').toString()]" doc:name="Set administrator"/>
+                <set-variable variableName="content_beheerder" value="#[payload.get('Content beheerder').toString()]" doc:name="Set content_beheerder"/>
+                <set-variable variableName="docent" value="#[payload.get('Docent').toString()]" doc:name="Set docent"/>
+                <set-variable variableName="platform_beheerder" value="#[payload.get('Platform beheerder').toString()]" doc:name="Set platform_beheerder"/>
+                <set-variable variableName="student" value="#[payload.get('Student').toString()]" doc:name="Set student"/>
+                <set-variable variableName="testgebruiker_onderwijs" value="#[payload.get('Testgebruiker onderwijs').toString()]" doc:name="Set testgebruiker_onderwijs"/>
+                <set-variable variableName="testgebruiker_viaa" value="#[payload.get('Testgebruiker viaa').toString()]" doc:name="Set testgebruiker_viaa"/>
                 <dw:transform-message doc:name="Transform Message">
                     <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
 {
 	"response_type": "in_channel",
-	"text": "# users: " ++ flowVars.amount_users ++ "\n# docenten: " ++ flowVars.amount_docenten ++ "\n# studenten: " ++ flowVars.amount_students
+	"text": "# docenten: " ++ flowVars.docent
+			 ++ "\n# studenten: " ++ flowVars.student
+			 ++ "\n# testgebruikers onderwijs: " ++ flowVars.testgebruiker_onderwijs
+			 ++ "\n# testgebruikers viaa: " ++ flowVars.testgebruiker_viaa
+			 ++ "\n# administrators: " ++ flowVars.administrator
+			 ++ "\n# platform beheerders: " ++ flowVars.platform_beheerder
 }]]></dw:set-payload>
                 </dw:transform-message>
             </when>
