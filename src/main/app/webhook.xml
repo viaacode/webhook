@@ -13,7 +13,7 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
 http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-current.xsd
 http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd">
     <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="10005" doc:name="HTTP Listener Configuration"/>
-    <http:request-config name="API_GATEWAY" host="${api.host}" port="${api.port}" basePath="/" responseTimeout="30000" doc:name="HTTP Request Configuration"/>
+    <http:request-config name="API_GATEWAY" host="${api.host}" port="${api.port}" basePath="/" responseTimeout="30000" doc:name="HTTP Request Configuration" />
     <context:property-placeholder location="${mule.env}.properties"/>
     <http:request-config name="Slackwebhook" protocol="HTTPS" host="hooks.slack.com" port="443" basePath="/" doc:name="HTTP Request Configuration">
         <http:proxy host="${proxy.host}" port="80"/>
@@ -92,15 +92,15 @@ http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/jso
             <when expression="#[flowVars.text=='users']">
                 <logger message="Text: #[flowVars.text]" level="INFO" doc:name="users"/>
                 <set-payload value="#[&quot;&quot;]" doc:name="Set Payload"/>
-                <http:request config-ref="API_GATEWAY" path="/api/avo/users/count" method="GET" doc:name="Request /api/avo/users/count"/>
+                <http:request config-ref="API_GATEWAY" path="/api/users/count" method="GET" doc:name="Request /api/users/count"/>
                 <json:json-to-object-transformer  doc:name="JSON to Object"/>
-                <set-variable variableName="administrator" value="#[payload.get('administrator').toString()]" doc:name="Set administrator"/>
-                <set-variable variableName="content_beheerder" value="#[payload.get('Content beheerder').toString()]" doc:name="Set content_beheerder"/>
-                <set-variable variableName="docent" value="#[payload.get('Docent').toString()]" doc:name="Set docent"/>
-                <set-variable variableName="platform_beheerder" value="#[payload.get('Platform beheerder').toString()]" doc:name="Set platform_beheerder"/>
-                <set-variable variableName="student" value="#[payload.get('Student').toString()]" doc:name="Set student"/>
-                <set-variable variableName="testgebruiker_onderwijs" value="#[payload.get('Testgebruiker onderwijs').toString()]" doc:name="Set testgebruiker_onderwijs"/>
-                <set-variable variableName="testgebruiker_viaa" value="#[payload.get('Testgebruiker viaa').toString()]" doc:name="Set testgebruiker_viaa"/>
+                <set-variable variableName="administrator" value="#[payload.get('data').get('administrator').toString()]" doc:name="Set administrator"/>
+                <set-variable variableName="content_beheerder" value="#[payload.get('data').get('Content beheerder').toString()]" doc:name="Set content_beheerder"/>
+                <set-variable variableName="docent" value="#[payload.get('data').get('Docent').toString()]" doc:name="Set docent"/>
+                <set-variable variableName="platform_beheerder" value="#[payload.get('data').get('Platform beheerder').toString()]" doc:name="Set platform_beheerder"/>
+                <set-variable variableName="student" value="#[payload.get('data').get('Student').toString()]" doc:name="Set student"/>
+                <set-variable variableName="testgebruiker_onderwijs" value="#[payload.get('data').get('Testgebruiker onderwijs').toString()]" doc:name="Set testgebruiker_onderwijs"/>
+                <set-variable variableName="testgebruiker_viaa" value="#[payload.get('data').get('Testgebruiker viaa').toString()]" doc:name="Set testgebruiker_viaa"/>
                 <dw:transform-message doc:name="Transform Message">
                     <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
@@ -154,15 +154,36 @@ http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/jso
                 <http:request config-ref="API_GATEWAY" path="/api/report/global" method="GET" doc:name="Request /api/report/global"/>
                 <byte-array-to-object-transformer doc:name="Byte Array to Object"/>
                 <json:json-to-object-transformer returnClass="java.util.HashMap" doc:name="JSON to Object"/>
-                <set-variable variableName="items" value="#[payload.get('archived').get('total').get('amount').get('ok')]" doc:name="Set items"/>
-                <set-variable variableName="petabytes" value="#[(float) payload.get('archived').get('total').get('bytes').get('ok')/1024/1024/1024/1024/1024]" doc:name="Set petabytes"/>
+                <set-variable variableName="items" value="#[payload.get('data').get('archived').get('total').get('amount').get('ok')]" doc:name="Set items"/>
+                <set-variable variableName="petabytes" value="#[String.format(&quot;%.2f&quot;, (float) payload.get('data').get('archived').get('total').get('bytes').get('ok')/1024/1024/1024/1024/1024)]" doc:name="Set petabytes"/>
                 <dw:transform-message doc:name="Build response">
                     <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
 {
 	"response_type": "in_channel",
-	"text": "#Items: " ++ flowVars.items ++ "\n#Petabytes: " ++ flowVars.petabytes
+	"text": "# items: " ++ flowVars.items ++ "\n# petabytes: " ++ flowVars.petabytes
+}]]></dw:set-payload>
+                </dw:transform-message>
+            </when>
+            <when expression="#[flowVars.text.contains('vrt') &amp;&amp; flowVars.text.length()&gt;3]">
+                <logger level="INFO" doc:name="vrt ID" message="vrt ID"/>
+                <set-variable variableName="id" value="#[flowVars.text.substring(flowVars.text.lastIndexOf('vrt ')+4)]" doc:name="Set id (media_id or pid)"/>
+                <http:request config-ref="API_GATEWAY" path="#['/api/vrt/' + flowVars.id]" method="GET" doc:name="Request /api/vrt/{id}"/>
+                <byte-array-to-object-transformer doc:name="Byte Array to Object"/>
+                <json:json-to-object-transformer returnClass="java.util.HashMap" doc:name="JSON to Object"/>
+                <set-variable variableName="pid" value="#[payload.get('data').get('pid') != null ? payload.get('data').get('pid').toString() : &quot;unknown&quot;]" doc:name="Set pid"/>
+                <set-variable variableName="media_id" value="#[payload.get('data').get('media_id') != null ? payload.get('data').get('media_id').toString() : &quot;unknown&quot;]" doc:name="Set media_id"/>
+                <set-variable variableName="status" value="#[payload.get('data').get('status') != null ? payload.get('data').get('status').toString() : &quot;unknown&quot;]" doc:name="Set status"/>
+                <dw:transform-message doc:name="Build response">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"response_type": "in_channel",
+	"text": "pid: " ++ flowVars.pid
+			 ++ "\nmedia_id: " ++ flowVars.media_id
+			 ++ "\nstatus: " ++ flowVars.status
 }]]></dw:set-payload>
                 </dw:transform-message>
             </when>
@@ -183,8 +204,8 @@ http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/jso
         <http:request config-ref="API_GATEWAY" path="/api/vrt/delay" method="GET" doc:name="Request /api/vrt/delay"/>
         <byte-array-to-object-transformer doc:name="Byte Array to Object"/>
         <json:json-to-object-transformer returnClass="java.util.HashMap" doc:name="JSON to Object"/>
-        <set-variable variableName="gemiddelde_starttijd" value="#[payload.get('gemiddelde_starttijd')]" doc:name="Set gemiddelde_starttijd"/>
-        <set-variable variableName="gemiddelde_duur" value="#[payload.get('gemiddelde_duur').get('value')]" doc:name="Set gemiddelde_duur"/>
+        <set-variable variableName="gemiddelde_starttijd" value="#[payload.get('data').get('gemiddelde_starttijd')]" doc:name="Set gemiddelde_starttijd"/>
+        <set-variable variableName="gemiddelde_duur" value="#[payload.get('data').get('gemiddelde_duur').get('value')]" doc:name="Set gemiddelde_duur"/>
         <dw:transform-message doc:name="Build response">
             <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
