@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:context="http://www.springframework.org/schema/context" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+<mule xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:context="http://www.springframework.org/schema/context" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:http="http://www.mulesoft.org/schema/mule/http"
 	xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw"
 	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
 	xmlns:spring="http://www.springframework.org/schema/beans" 
@@ -11,16 +11,26 @@ http://www.springframework.org/schema/beans http://www.springframework.org/schem
 http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
 http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
 http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-current.xsd
-http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd">
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
     <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="10005" doc:name="HTTP Listener Configuration"/>
     <http:request-config name="API_GATEWAY" host="${api.host}" port="${api.port}" basePath="/" responseTimeout="30000" doc:name="HTTP Request Configuration" />
     <context:property-placeholder location="${mule.env}.properties"/>
     <http:request-config name="Slackwebhook" protocol="HTTPS" host="hooks.slack.com" port="443" basePath="/" doc:name="HTTP Request Configuration">
         <http:proxy host="${proxy.host}" port="80"/>
     </http:request-config>
+    <http:request-config name="SlackAPI" protocol="HTTPS" host="slack.com" port="443" basePath="/api" doc:name="HTTP Request Configuration">
+        <http:proxy host="${proxy.host}" port="80"/>
+    </http:request-config>
+    <db:mysql-config name="AMS_MySQL" host="${ams.db.host}" port="${ams.db.port}" user="${ams.db.username}" password="${ams.db.password}" database="${ams.db.database}" doc:name="MySQL Configuration">
+        <reconnect-forever/>
+    </db:mysql-config>
+    
+    
 <flow name="slack_webhook">
         <http:listener config-ref="HTTP_Listener_Configuration" path="/webhook" allowedMethods="GET, POST" doc:name="/webhook"/>
         <logger message="Received request from Slack: #[payload]" level="INFO" doc:name="Received request from Slack"/>
+        <set-variable variableName="user_id" value="#[payload.user_id]" doc:name="Set user_id"/>
         <set-variable variableName="token" value="#[payload['token']!=null ? payload['token'] : '']" doc:name="Set token"/>
         <set-variable variableName="token_slack" value="${slack.token}" doc:name="Set token_slack"/>
         <set-variable variableName="command" value="#[payload['command']]" doc:name="Set command"/>
@@ -219,14 +229,198 @@ http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/jso
         <http:request config-ref="Slackwebhook" path="#[flowVars.response_url_path]" method="POST" doc:name="Send response to response_url just in case it takes longer than 3sec"/>
     </flow>
     <sub-flow name="slackAMS">
-        <dw:transform-message doc:name="Build response">
-            <dw:set-payload><![CDATA[%dw 1.0
+        <choice doc:name="Choice">
+            <when expression="#[flowVars.text==&quot;btw&quot;]">
+                <logger message="Requested BTW-self billing" level="INFO" doc:name="Logger"/>
+                <async doc:name="Async">
+                    <db:select config-ref="AMS_MySQL" doc:name="Get all counts for all carrier types and all CPs">
+                        <db:parameterized-query><![CDATA[SELECT organizations.name as organisatie,
+     COUNT(
+         CASE
+            WHEN carrier_format.name = '1/4 inch open reel audio'
+            THEN 1
+            ELSE NULL
+        END
+    ) AS '1/4 inch open reel audio',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'Audiocassette'
+            THEN 1
+            ELSE NULL
+        END
+    ) AS 'Audiocassette',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'Betacam SP'
+            THEN 1
+            ELSE NULL
+        END
+    ) AS 'Betacam SP',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'U-Matic'
+            THEN 1
+            ELSE NULL
+        END
+    ) AS 'U-Matic',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'Digital Betacam'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'Digital Betacam',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'Betamax'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'Betamax',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'Betacam Oxide'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'Betacam Oxide',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'VCR'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'VCR',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'CD-R'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'CD-R',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'wax cylinder'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'wax cylinder',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'wire recording'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'wire recording',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = '2 inch open reel video'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS '2 inch open reel video',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = '1 inch open reel video'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS '1 inch open reel video',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = '1/2 inch open reel video'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS '1/2 inch open reel video',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = '1/4 inch open reel video'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS '1/4 inch open reel video',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'Betacam SX'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'Betacam SX',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'VHS'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'VHS',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'shellac and lacquer disc'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'shellac and lacquer disc'
+FROM av_carrier
+LEFT JOIN carrier ON av_carrier.carrier_id = carrier.id
+LEFT JOIN carrier_format ON av_carrier.carrier_format_id = carrier_format.id
+LEFT JOIN organizations ON carrier.organization_id = organizations.id
+INNER JOIN events ON events.carrier_id = carrier.id
+AND events.event_lookup_id = 5
+AND events.event_outcome = 1
+AND events.event_date >= '2016-01-01'
+AND events.event_date < '2017-01-01'
+GROUP BY organizations.name
+ORDER BY organizations.name;]]></db:parameterized-query>
+                    </db:select>
+                    <dw:transform-message doc:name="Reformat response so organisation is first">
+                        <dw:set-variable variableName="file"><![CDATA[%dw 1.0
+%output application/csv
+---
+payload map using (row = $) {
+	organisation: $.organisatie,
+	(row mapObject using (key = $$, value = $) {
+		('$$': value) when '$$' != 'organisatie'
+	})
+}]]></dw:set-variable>
+                    </dw:transform-message>
+                    <byte-array-to-string-transformer doc:name="Byte Array to String"/>
+                    <dw:transform-message doc:name="Create a file.upload body">
+                        <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+{
+	token: p('slack.postToken'),
+	content: flowVars.file,
+	filename: (now as :string { format: "ddMMyyyyHHmmss"}) ++ '_billing.csv',
+	channels: flowVars.user_id
+}]]></dw:set-payload>
+                    </dw:transform-message>
+                    <message-properties-transformer doc:name="Set Content-type to multipart/form-data">
+                        <add-message-property key="Content-type" value="multipart/form-data"/>
+                    </message-properties-transformer>
+                    <http:request config-ref="SlackAPI" path="/files.upload" method="POST" doc:name="Upload the file"/>
+                </async>
+                <dw:transform-message doc:name="Build response">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"text": 'The result will be sent to you via a direct message.'
+}]]></dw:set-payload>
+                </dw:transform-message>
+            </when>
+            <otherwise>
+                <dw:transform-message doc:name="Build response">
+                    <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
 {
 	"response_type": "in_channel",
 	"text": "Coming soon!"
 }]]></dw:set-payload>
-        </dw:transform-message>
+                </dw:transform-message>
+            </otherwise>
+        </choice>
     </sub-flow>
 </mule>

@@ -1,6 +1,13 @@
 slack.token=
+slack.postToken=
 
 api.host=
 api.port=
 
-proxy.host=
+proxy.host=proxy
+
+ams.db.host=
+ams.db.port=
+ams.db.username=
+ams.db.password=
+ams.db.database=
