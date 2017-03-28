@@ -103,26 +103,20 @@ http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/cu
                 <logger message="Text: #[flowVars.text]" level="INFO" doc:name="users"/>
                 <set-payload value="#[&quot;&quot;]" doc:name="Set Payload"/>
                 <http:request config-ref="API_GATEWAY" path="/api/users/count" method="GET" doc:name="Request /api/users/count"/>
-                <json:json-to-object-transformer  doc:name="JSON to Object"/>
-                <set-variable variableName="administrator" value="#[payload.get('data').get('administrator').toString()]" doc:name="Set administrator"/>
-                <set-variable variableName="content_beheerder" value="#[payload.get('data').get('Content beheerder').toString()]" doc:name="Set content_beheerder"/>
-                <set-variable variableName="docent" value="#[payload.get('data').get('Docent').toString()]" doc:name="Set docent"/>
-                <set-variable variableName="platform_beheerder" value="#[payload.get('data').get('Platform beheerder').toString()]" doc:name="Set platform_beheerder"/>
-                <set-variable variableName="student" value="#[payload.get('data').get('Student').toString()]" doc:name="Set student"/>
-                <set-variable variableName="testgebruiker_onderwijs" value="#[payload.get('data').get('Testgebruiker onderwijs').toString()]" doc:name="Set testgebruiker_onderwijs"/>
-                <set-variable variableName="testgebruiker_viaa" value="#[payload.get('data').get('Testgebruiker viaa').toString()]" doc:name="Set testgebruiker_viaa"/>
                 <dw:transform-message doc:name="Transform Message">
+                    <dw:input-payload doc:sample="sample_data/json.json"/>
                     <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
 {
 	"response_type": "in_channel",
-	"text": "# docenten: " ++ flowVars.docent
-			 ++ "\n# studenten: " ++ flowVars.student
-			 ++ "\n# testgebruikers onderwijs: " ++ flowVars.testgebruiker_onderwijs
-			 ++ "\n# testgebruikers viaa: " ++ flowVars.testgebruiker_viaa
-			 ++ "\n# administrators: " ++ flowVars.administrator
-			 ++ "\n# platform beheerders: " ++ flowVars.platform_beheerder
+	"text": '*Users in AvO: *\n' ++ payload.data mapObject (
+		'pair': {
+			'key': $$,
+			'value': $
+		}
+	) map ('>*' ++ capitalize $.key ++ '*: ' ++ $.value) joinBy "\n",
+	mrkdwn: true
 }]]></dw:set-payload>
                 </dw:transform-message>
             </when>
@@ -230,11 +224,14 @@ http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/cu
     </flow>
     <sub-flow name="slackAMS">
         <choice doc:name="Choice">
-            <when expression="#[flowVars.text==&quot;btw&quot;]">
-                <logger message="Requested BTW-self billing" level="INFO" doc:name="Logger"/>
-                <async doc:name="Async">
-                    <db:select config-ref="AMS_MySQL" doc:name="Get all counts for all carrier types and all CPs">
-                        <db:parameterized-query><![CDATA[SELECT organizations.name as organisatie,
+            <when expression="#[flowVars.text.startsWith(&quot;btw&quot;)]">
+                <choice doc:name="Choice">
+                    <when expression="#[flowVars.text.matches(&quot;btw ([0-9]{4})&quot;)]">
+                        <set-variable variableName="startYear" value="#[java.lang.Integer.parseInt(flowVars.text.replaceAll(&quot;btw &quot;, &quot;&quot;))]" doc:name="Set startYear"/>
+                        <set-variable variableName="endYear" value="#[flowVars.startYear + 1]" doc:name="Set endYear"/>
+                        <async doc:name="Async">
+                            <db:select config-ref="AMS_MySQL" doc:name="Get all counts for all carrier types and all CPs">
+                                <db:parameterized-query><![CDATA[SELECT organizations.name as organisatie,
      COUNT(
          CASE
             WHEN carrier_format.name = '1/4 inch open reel audio'
@@ -242,6 +239,7 @@ http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/cu
             ELSE NULL
         END
     ) AS '1/4 inch open reel audio',
+    '' as '1/4 inch open reel audio prijs',
     COUNT(
         CASE
             WHEN carrier_format.name = 'Audiocassette'
@@ -249,6 +247,7 @@ http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/cu
             ELSE NULL
         END
     ) AS 'Audiocassette',
+    '' as 'Audiocassette prijs',
     COUNT(
         CASE
             WHEN carrier_format.name = 'Betacam SP'
@@ -256,6 +255,7 @@ http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/cu
             ELSE NULL
         END
     ) AS 'Betacam SP',
+    '' as 'Betacam SP prijs',
     COUNT(
         CASE
             WHEN carrier_format.name = 'U-Matic'
@@ -263,6 +263,7 @@ http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/cu
             ELSE NULL
         END
     ) AS 'U-Matic',
+    '' as 'U-Matic prijs',
     COUNT(
         CASE
             WHEN carrier_format.name = 'Digital Betacam'
@@ -270,6 +271,7 @@ http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/cu
             ELSE NULL
             END
     ) AS 'Digital Betacam',
+    '' as 'Digital Betacam prijs',
     COUNT(
         CASE
             WHEN carrier_format.name = 'Betamax'
@@ -277,6 +279,7 @@ http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/cu
             ELSE NULL
             END
     ) AS 'Betamax',
+    '' as 'Betamax prijs',
     COUNT(
         CASE
             WHEN carrier_format.name = 'Betacam Oxide'
@@ -284,6 +287,7 @@ http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/cu
             ELSE NULL
             END
     ) AS 'Betacam Oxide',
+    '' as 'Betacam Oxide prijs',
     COUNT(
         CASE
             WHEN carrier_format.name = 'VCR'
@@ -291,6 +295,7 @@ http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/cu
             ELSE NULL
             END
     ) AS 'VCR',
+    '' as 'VCR prijs',
     COUNT(
         CASE
             WHEN carrier_format.name = 'CD-R'
@@ -298,6 +303,7 @@ http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/cu
             ELSE NULL
             END
     ) AS 'CD-R',
+    '' as 'CD-R prijs',
     COUNT(
         CASE
             WHEN carrier_format.name = 'wax cylinder'
@@ -305,6 +311,7 @@ http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/cu
             ELSE NULL
             END
     ) AS 'wax cylinder',
+    '' as 'wax cylinder prijs',
     COUNT(
         CASE
             WHEN carrier_format.name = 'wire recording'
@@ -312,27 +319,15 @@ http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/cu
             ELSE NULL
             END
     ) AS 'wire recording',
+    '' as 'wire recording prijs',
     COUNT(
         CASE
-            WHEN carrier_format.name = '2 inch open reel video'
+            WHEN carrier_format.name IN('2 inch open reel video', '1 inch open reel video', '1/2 inch open reel video')
             THEN 1
             ELSE NULL
             END
-    ) AS '2 inch open reel video',
-    COUNT(
-        CASE
-            WHEN carrier_format.name = '1 inch open reel video'
-            THEN 1
-            ELSE NULL
-            END
-    ) AS '1 inch open reel video',
-    COUNT(
-        CASE
-            WHEN carrier_format.name = '1/2 inch open reel video'
-            THEN 1
-            ELSE NULL
-            END
-    ) AS '1/2 inch open reel video',
+    ) AS 'open reel video',
+    '' as 'open reel video prijs',
     COUNT(
         CASE
             WHEN carrier_format.name = '1/4 inch open reel video'
@@ -340,6 +335,7 @@ http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/cu
             ELSE NULL
             END
     ) AS '1/4 inch open reel video',
+    '' as '1/4 inch open reel video prijs',
     COUNT(
         CASE
             WHEN carrier_format.name = 'Betacam SX'
@@ -347,6 +343,7 @@ http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/cu
             ELSE NULL
             END
     ) AS 'Betacam SX',
+    '' as 'Betacam SX prijs',
     COUNT(
         CASE
             WHEN carrier_format.name = 'VHS'
@@ -354,13 +351,15 @@ http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/cu
             ELSE NULL
             END
     ) AS 'VHS',
+    '' as 'VHS prijs',
     COUNT(
         CASE
             WHEN carrier_format.name = 'shellac and lacquer disc'
             THEN 1
             ELSE NULL
             END
-    ) AS 'shellac and lacquer disc'
+    ) AS 'shellac and lacquer disc',
+    '' as 'shellac and lacquer disc prijs'
 FROM av_carrier
 LEFT JOIN carrier ON av_carrier.carrier_id = carrier.id
 LEFT JOIN carrier_format ON av_carrier.carrier_format_id = carrier_format.id
@@ -368,25 +367,25 @@ LEFT JOIN organizations ON carrier.organization_id = organizations.id
 INNER JOIN events ON events.carrier_id = carrier.id
 AND events.event_lookup_id = 5
 AND events.event_outcome = 1
-AND events.event_date >= '2016-01-01'
-AND events.event_date < '2017-01-01'
+AND events.event_date >= #[flowVars.startYear + "-01-01"]
+AND events.event_date < #[flowVars.endYear + "-01-01"]
 GROUP BY organizations.name
 ORDER BY organizations.name;]]></db:parameterized-query>
-                    </db:select>
-                    <dw:transform-message doc:name="Reformat response so organisation is first">
-                        <dw:set-variable variableName="file"><![CDATA[%dw 1.0
+                            </db:select>
+                            <expression-component doc:name="Set columns"><![CDATA[flowVars.columns = {"organisatie", "1/4 inch open reel audio", "1/4 inch open reel audio prijs", "Audiocassette", "Audiocassette prijs", "Betacam SP", "Betacam SP prijs", "U-Matic", "U-Matic prijs", "Digital Betacam", "Digital Betacam prijs", "Betamax", "Betamax prijs", "Betacam Oxide", "Betacam Oxide prijs", "VCR", "VCR prijs", "CD-R", "CD-R prijs", "wax cylinder", "wax cylinder prijs", "wire recording", "wire recording prijs", "open reel video", "open reel video prijs", "1/4 inch open reel video", "1/4 inch open reel video prijs", "Betacam SX", "Betacam SX prijs", "VHS", "VHS prijs", "shellac and lacquer disc", "shellac and lacquer disc prijs"};]]></expression-component>
+                            <dw:transform-message doc:name="Reformat response so columns are in the right order">
+                                <dw:set-variable variableName="file"><![CDATA[%dw 1.0
 %output application/csv
 ---
 payload map using (row = $) {
-	organisation: $.organisatie,
-	(row mapObject using (key = $$, value = $) {
-		('$$': value) when '$$' != 'organisatie'
+	(flowVars.columns map using (key = $) {
+		'$key': row[key]
 	})
 }]]></dw:set-variable>
-                    </dw:transform-message>
-                    <byte-array-to-string-transformer doc:name="Byte Array to String"/>
-                    <dw:transform-message doc:name="Create a file.upload body">
-                        <dw:set-payload><![CDATA[%dw 1.0
+                            </dw:transform-message>
+                            <byte-array-to-string-transformer doc:name="Byte Array to String"/>
+                            <dw:transform-message doc:name="Create a file.upload body">
+                                <dw:set-payload><![CDATA[%dw 1.0
 %output application/java
 ---
 {
@@ -395,20 +394,32 @@ payload map using (row = $) {
 	filename: (now as :string { format: "ddMMyyyyHHmmss"}) ++ '_billing.csv',
 	channels: flowVars.user_id
 }]]></dw:set-payload>
-                    </dw:transform-message>
-                    <message-properties-transformer doc:name="Set Content-type to multipart/form-data">
-                        <add-message-property key="Content-type" value="multipart/form-data"/>
-                    </message-properties-transformer>
-                    <http:request config-ref="SlackAPI" path="/files.upload" method="POST" doc:name="Upload the file"/>
-                </async>
-                <dw:transform-message doc:name="Build response">
-                    <dw:set-payload><![CDATA[%dw 1.0
+                            </dw:transform-message>
+                            <message-properties-transformer doc:name="Set Content-type to multipart/form-data">
+                                <add-message-property key="Content-type" value="multipart/form-data"/>
+                            </message-properties-transformer>
+                            <http:request config-ref="SlackAPI" path="/files.upload" method="POST" doc:name="Upload the file"/>
+                        </async>
+                        <dw:transform-message doc:name="Build response">
+                            <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
 {
 	"text": 'The result will be sent to you via a direct message.'
 }]]></dw:set-payload>
-                </dw:transform-message>
+                        </dw:transform-message>
+                    </when>
+                    <otherwise>
+                        <dw:transform-message doc:name="Transform Message">
+                            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"text": 'The call was of an incorrect format. Example: /ams btw 2016'
+}]]></dw:set-payload>
+                        </dw:transform-message>
+                    </otherwise>
+                </choice>
             </when>
             <otherwise>
                 <dw:transform-message doc:name="Build response">
