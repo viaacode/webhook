@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:context="http://www.springframework.org/schema/context" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+<mule xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:context="http://www.springframework.org/schema/context" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:http="http://www.mulesoft.org/schema/mule/http"
 	xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw"
 	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
 	xmlns:spring="http://www.springframework.org/schema/beans" 
@@ -11,16 +11,26 @@ http://www.springframework.org/schema/beans http://www.springframework.org/schem
 http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
 http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
 http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-current.xsd
-http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd">
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
     <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="10005" doc:name="HTTP Listener Configuration"/>
     <http:request-config name="API_GATEWAY" host="${api.host}" port="${api.port}" basePath="/" responseTimeout="30000" doc:name="HTTP Request Configuration" />
     <context:property-placeholder location="${mule.env}.properties"/>
     <http:request-config name="Slackwebhook" protocol="HTTPS" host="hooks.slack.com" port="443" basePath="/" doc:name="HTTP Request Configuration">
         <http:proxy host="${proxy.host}" port="80"/>
     </http:request-config>
+    <http:request-config name="SlackAPI" protocol="HTTPS" host="slack.com" port="443" basePath="/api" doc:name="HTTP Request Configuration">
+        <http:proxy host="${proxy.host}" port="80"/>
+    </http:request-config>
+    <db:mysql-config name="AMS_MySQL" host="${ams.db.host}" port="${ams.db.port}" user="${ams.db.username}" password="${ams.db.password}" database="${ams.db.database}" doc:name="MySQL Configuration">
+        <reconnect-forever/>
+    </db:mysql-config>
+    
+    
 <flow name="slack_webhook">
         <http:listener config-ref="HTTP_Listener_Configuration" path="/webhook" allowedMethods="GET, POST" doc:name="/webhook"/>
         <logger message="Received request from Slack: #[payload]" level="INFO" doc:name="Received request from Slack"/>
+        <set-variable variableName="user_id" value="#[payload.user_id]" doc:name="Set user_id"/>
         <set-variable variableName="token" value="#[payload['token']!=null ? payload['token'] : '']" doc:name="Set token"/>
         <set-variable variableName="token_slack" value="${slack.token}" doc:name="Set token_slack"/>
         <set-variable variableName="command" value="#[payload['command']]" doc:name="Set command"/>
@@ -91,30 +101,49 @@ http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/jso
             </when>
             <when expression="#[flowVars.text=='users']">
                 <logger message="Text: #[flowVars.text]" level="INFO" doc:name="users"/>
-                <set-payload value="#[&quot;&quot;]" doc:name="Set Payload"/>
-                <http:request config-ref="API_GATEWAY" path="/api/users/count/active" method="GET" doc:name="Request /api/users/count"/>
-                <json:json-to-object-transformer  doc:name="JSON to Object"/>
-                <set-variable variableName="administrator" value="#[payload.get('data').get('administrator').toString()]" doc:name="Set administrator"/>
-                <set-variable variableName="content_beheerder" value="#[payload.get('data').get('Content beheerder').toString()]" doc:name="Set content_beheerder"/>
-                <set-variable variableName="docent" value="#[payload.get('data').get('Docent').toString()]" doc:name="Set docent"/>
-                <set-variable variableName="platform_beheerder" value="#[payload.get('data').get('Platform beheerder').toString()]" doc:name="Set platform_beheerder"/>
-                <set-variable variableName="student" value="#[payload.get('data').get('Student').toString()]" doc:name="Set student"/>
-                <set-variable variableName="testgebruiker_onderwijs" value="#[payload.get('data').get('Testgebruiker onderwijs').toString()]" doc:name="Set testgebruiker_onderwijs"/>
-                <set-variable variableName="testgebruiker_viaa" value="#[payload.get('data').get('Testgebruiker viaa').toString()]" doc:name="Set testgebruiker_viaa"/>
-                <dw:transform-message doc:name="Transform Message">
-                    <dw:set-payload><![CDATA[%dw 1.0
+                <choice doc:name="Choice">
+                    <when expression="#[flowVars.user_id.equals(&quot;U02HS2XND&quot;) || flowVars.user_id.equals(&quot;U02HE0C8D&quot;) || flowVars.user_id.equals(&quot;U0ND8MVMK&quot;) || flowVars.user_id.equals(&quot;U02J6K91Z&quot;) || flowVars.user_id.equals(&quot;U2FS6MK27&quot;) || flowVars.user_id.equals(&quot;U02HE1QSZ&quot;) || flowVars.user_id.equals(&quot;U02J6K91Z&quot;) || flowVars.user_id.equals(&quot;U4TDQ4WM9&quot;)]">
+                        <async doc:name="Async">
+                            <http:request config-ref="API_GATEWAY" path="/api/users/count" method="GET" doc:name="Request /api/users/count"/>
+                            <dw:transform-message doc:name="Transform Message">
+                                <dw:input-payload doc:sample="sample_data/json.json"/>
+                                <dw:set-variable variableName="message"><![CDATA[%dw 1.0
+%output application/java
+---
+('*Users in AvO: *\n' ++ payload.data mapObject (
+		'pair': {
+			'key': $$,
+			'value': $
+		}
+	) map ('>*' ++ capitalize $.key ++ '*: ' ++ $.value) joinBy "\n")]]></dw:set-variable>
+                            </dw:transform-message>
+                            <http:request config-ref="SlackAPI" path="/chat.postMessage" method="POST" doc:name="Post to slack">
+                                <http:request-builder>
+                                    <http:query-param paramName="token" value="${slack.postToken}"/>
+                                    <http:query-param paramName="as_user" value="false"/>
+                                    <http:query-param paramName="username" value="AvoBot"/>
+                                    <http:query-param paramName="channel" value="#[flowVars.user_id]"/>
+                                    <http:query-param paramName="text" value="#[flowVars.message]"/>
+                                    <http:query-param paramName="mrkdwn" value="true"/>
+                                    <http:header headerName="Content-Type" value="application/json"/>
+                                </http:request-builder>
+                            </http:request>
+                        </async>
+                        <set-payload value="#[&quot;&quot;]" doc:name="Set Payload"/>
+                    </when>
+                    <otherwise>
+                        <logger message="User #[flowVars.user_id] has no access to the AvO users command." level="WARN" doc:name="Logger"/>
+                        <dw:transform-message doc:name="Transform Message">
+                            <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
 {
-	"response_type": "in_channel",
-	"text": "# docenten: " ++ flowVars.docent
-			 ++ "\n# studenten: " ++ flowVars.student
-			 ++ "\n# testgebruikers onderwijs: " ++ flowVars.testgebruiker_onderwijs
-			 ++ "\n# testgebruikers viaa: " ++ flowVars.testgebruiker_viaa
-			 ++ "\n# administrators: " ++ flowVars.administrator
-			 ++ "\n# platform beheerders: " ++ flowVars.platform_beheerder
+	"response_type": "ephemeral",
+	"text": "U hebt geen toegang tot deze functie. Contacteer het dev team."
 }]]></dw:set-payload>
-                </dw:transform-message>
+                        </dw:transform-message>
+                    </otherwise>
+                </choice>
             </when>
             <when expression="#[flowVars.text=='items']">
                 <logger message="items" level="INFO" doc:name="items"/>
@@ -219,14 +248,215 @@ http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/jso
         <http:request config-ref="Slackwebhook" path="#[flowVars.response_url_path]" method="POST" doc:name="Send response to response_url just in case it takes longer than 3sec"/>
     </flow>
     <sub-flow name="slackAMS">
-        <dw:transform-message doc:name="Build response">
-            <dw:set-payload><![CDATA[%dw 1.0
+        <choice doc:name="Choice">
+            <when expression="#[flowVars.text.startsWith(&quot;btw&quot;)]">
+                <choice doc:name="Choice">
+                    <when expression="#[flowVars.text.matches(&quot;btw ([0-9]{4})&quot;)]">
+                        <set-variable variableName="startYear" value="#[java.lang.Integer.parseInt(flowVars.text.replaceAll(&quot;btw &quot;, &quot;&quot;))]" doc:name="Set startYear"/>
+                        <set-variable variableName="endYear" value="#[flowVars.startYear + 1]" doc:name="Set endYear"/>
+                        <async doc:name="Async">
+                            <db:select config-ref="AMS_MySQL" doc:name="Get all counts for all carrier types and all CPs">
+                                <db:parameterized-query><![CDATA[SELECT organizations.name as organisatie,
+     COUNT(
+         CASE
+            WHEN carrier_format.name = '1/4 inch open reel audio'
+            THEN 1
+            ELSE NULL
+        END
+    ) AS '1/4 inch open reel audio',
+    '' as '1/4 inch open reel audio prijs',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'Audiocassette'
+            THEN 1
+            ELSE NULL
+        END
+    ) AS 'Audiocassette',
+    '' as 'Audiocassette prijs',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'Betacam SP'
+            THEN 1
+            ELSE NULL
+        END
+    ) AS 'Betacam SP',
+    '' as 'Betacam SP prijs',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'U-Matic'
+            THEN 1
+            ELSE NULL
+        END
+    ) AS 'U-Matic',
+    '' as 'U-Matic prijs',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'Digital Betacam'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'Digital Betacam',
+    '' as 'Digital Betacam prijs',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'Betamax'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'Betamax',
+    '' as 'Betamax prijs',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'Betacam Oxide'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'Betacam Oxide',
+    '' as 'Betacam Oxide prijs',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'VCR'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'VCR',
+    '' as 'VCR prijs',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'CD-R'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'CD-R',
+    '' as 'CD-R prijs',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'wax cylinder'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'wax cylinder',
+    '' as 'wax cylinder prijs',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'wire recording'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'wire recording',
+    '' as 'wire recording prijs',
+    COUNT(
+        CASE
+            WHEN carrier_format.name IN('2 inch open reel video', '1 inch open reel video', '1/2 inch open reel video')
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'open reel video',
+    '' as 'open reel video prijs',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = '1/4 inch open reel video'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS '1/4 inch open reel video',
+    '' as '1/4 inch open reel video prijs',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'Betacam SX'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'Betacam SX',
+    '' as 'Betacam SX prijs',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'VHS'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'VHS',
+    '' as 'VHS prijs',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'shellac and lacquer disc'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'shellac and lacquer disc',
+    '' as 'shellac and lacquer disc prijs'
+FROM av_carrier
+LEFT JOIN carrier ON av_carrier.carrier_id = carrier.id
+LEFT JOIN carrier_format ON av_carrier.carrier_format_id = carrier_format.id
+LEFT JOIN organizations ON carrier.organization_id = organizations.id
+INNER JOIN events ON events.carrier_id = carrier.id
+AND events.event_lookup_id = 5
+AND events.event_outcome = 1
+AND events.event_date >= #[flowVars.startYear + "-01-01"]
+AND events.event_date < #[flowVars.endYear + "-01-01"]
+GROUP BY organizations.name
+ORDER BY organizations.name;]]></db:parameterized-query>
+                            </db:select>
+                            <expression-component doc:name="Set columns"><![CDATA[flowVars.columns = {"organisatie", "1/4 inch open reel audio", "1/4 inch open reel audio prijs", "Audiocassette", "Audiocassette prijs", "Betacam SP", "Betacam SP prijs", "U-Matic", "U-Matic prijs", "Digital Betacam", "Digital Betacam prijs", "Betamax", "Betamax prijs", "Betacam Oxide", "Betacam Oxide prijs", "VCR", "VCR prijs", "CD-R", "CD-R prijs", "wax cylinder", "wax cylinder prijs", "wire recording", "wire recording prijs", "open reel video", "open reel video prijs", "1/4 inch open reel video", "1/4 inch open reel video prijs", "Betacam SX", "Betacam SX prijs", "VHS", "VHS prijs", "shellac and lacquer disc", "shellac and lacquer disc prijs"};]]></expression-component>
+                            <dw:transform-message doc:name="Reformat response so columns are in the right order">
+                                <dw:set-variable variableName="file"><![CDATA[%dw 1.0
+%output application/csv
+---
+payload map using (row = $) {
+	(flowVars.columns map using (key = $) {
+		'$key': row[key]
+	})
+}]]></dw:set-variable>
+                            </dw:transform-message>
+                            <byte-array-to-string-transformer doc:name="Byte Array to String"/>
+                            <dw:transform-message doc:name="Create a file.upload body">
+                                <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+{
+	token: p('slack.postToken'),
+	content: flowVars.file,
+	filename: (now as :string { format: "ddMMyyyyHHmmss"}) ++ '_billing.csv',
+	channels: flowVars.user_id
+}]]></dw:set-payload>
+                            </dw:transform-message>
+                            <message-properties-transformer doc:name="Set Content-type to multipart/form-data">
+                                <add-message-property key="Content-type" value="multipart/form-data"/>
+                            </message-properties-transformer>
+                            <http:request config-ref="SlackAPI" path="/files.upload" method="POST" doc:name="Upload the file"/>
+                        </async>
+                        <dw:transform-message doc:name="Build response">
+                            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"text": 'The result will be sent to you via a direct message.'
+}]]></dw:set-payload>
+                        </dw:transform-message>
+                    </when>
+                    <otherwise>
+                        <dw:transform-message doc:name="Transform Message">
+                            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"text": 'The call was of an incorrect format. Example: /ams btw 2016'
+}]]></dw:set-payload>
+                        </dw:transform-message>
+                    </otherwise>
+                </choice>
+            </when>
+            <otherwise>
+                <dw:transform-message doc:name="Build response">
+                    <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
 {
 	"response_type": "in_channel",
 	"text": "Coming soon!"
 }]]></dw:set-payload>
-        </dw:transform-message>
+                </dw:transform-message>
+            </otherwise>
+        </choice>
     </sub-flow>
 </mule>
