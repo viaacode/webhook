@@ -92,7 +92,7 @@ http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/jso
             <when expression="#[flowVars.text=='users']">
                 <logger message="Text: #[flowVars.text]" level="INFO" doc:name="users"/>
                 <set-payload value="#[&quot;&quot;]" doc:name="Set Payload"/>
-                <http:request config-ref="API_GATEWAY" path="/api/users/count" method="GET" doc:name="Request /api/users/count"/>
+                <http:request config-ref="API_GATEWAY" path="/api/users/count/active" method="GET" doc:name="Request /api/users/count"/>
                 <json:json-to-object-transformer  doc:name="JSON to Object"/>
                 <set-variable variableName="administrator" value="#[payload.get('data').get('administrator').toString()]" doc:name="Set administrator"/>
                 <set-variable variableName="content_beheerder" value="#[payload.get('data').get('Content beheerder').toString()]" doc:name="Set content_beheerder"/>
