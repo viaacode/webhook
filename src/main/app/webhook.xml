@@ -110,7 +110,7 @@ U02J6K91Z       Karen vander Plaetse
 U4TDQ4WM9       Claire Denoyette">
                     <when expression="#[flowVars.user_id.equals(&quot;U02HS2XND&quot;) || flowVars.user_id.equals(&quot;U02HE0C8D&quot;) || flowVars.user_id.equals(&quot;U0ND8MVMK&quot;) || flowVars.user_id.equals(&quot;U02J6K91Z&quot;) || flowVars.user_id.equals(&quot;U2FS6MK27&quot;) || flowVars.user_id.equals(&quot;U02HE1QSZ&quot;) || flowVars.user_id.equals(&quot;U4TDQ4WM9&quot;)]">
                         <async doc:name="Async">
-                            <http:request config-ref="API_GATEWAY" path="/api/users/count" method="GET" doc:name="Request /api/users/count"/>
+                            <http:request config-ref="API_GATEWAY" path="/api/users/count/active" method="GET" doc:name="Request /api/users/count"/>
                             <dw:transform-message doc:name="Transform Message">
                                 <dw:input-payload doc:sample="sample_data/json.json"/>
                                 <dw:set-variable variableName="message"><![CDATA[%dw 1.0
