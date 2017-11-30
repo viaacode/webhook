@@ -62,7 +62,23 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
             </when>
             <when expression="#[flowVars.text=='users']">
                 <logger message="Text: #[flowVars.text]" level="INFO" doc:name="users"/>
-                <choice doc:name="Is this user authorized to call this function? (See notes)" doc:description="U02HS2XND       Leen De Bruyn U02HE0C8D       Bart Debunne U0ND8MVMK       Brecht Van de Vyvere U2FS6MK27       Dieter Van Hoof U02HE1QSZ       Nico  Verplancke U02J6K91Z       Karen vander Plaetse U4TDQ4WM9       Claire Denoyette
+                <flow-ref name="avo_users_routing" doc:name="avo_users_routing"></flow-ref>
+            </when>
+            <when expression="#[flowVars.text=='items']">
+                <logger message="items" level="INFO" doc:name="items"/>
+                <flow-ref name="avo_items" doc:name="avo_items"/>
+            </when>
+            <when expression="#[flowVars.text == &quot;help&quot; || flowVars.text == &quot;what&quot; || flowVars.text == &quot;wat&quot; || flowVars.text == &quot;?&quot;]">
+                <logger message="help" level="INFO" doc:name="help"/>
+                <flow-ref name="avo_help" doc:name="avo_help"/>
+            </when>
+            <otherwise>
+                <flow-ref name="avo_help" doc:name="avo_help"/>
+            </otherwise>
+        </choice>
+    </sub-flow>
+    <sub-flow name="avo_users_routing">
+    	<choice doc:name="Is this user authorized to call this function? (See notes)" doc:description="U02HS2XND       Leen De Bruyn U02HE0C8D       Bart Debunne U0ND8MVMK       Brecht Van de Vyvere U2FS6MK27       Dieter Van Hoof U02HE1QSZ       Nico  Verplancke U02J6K91Z       Karen vander Plaetse U4TDQ4WM9       Claire Denoyette
 U02HF1K3Q	Matthias Priem">
                     <when expression="#[flowVars.user_id.equals(&quot;U02HS2XND&quot;) || flowVars.user_id.equals(&quot;U02HE0C8D&quot;) || flowVars.user_id.equals(&quot;U0ND8MVMK&quot;) || flowVars.user_id.equals(&quot;U02J6K91Z&quot;) || flowVars.user_id.equals(&quot;U2FS6MK27&quot;) || flowVars.user_id.equals(&quot;U02HE1QSZ&quot;) || flowVars.user_id.equals(&quot;U4TDQ4WM9&quot;) || flowVars.user_id.equals(&quot;U02HF1K3Q&quot;)]">
                         <async doc:name="Async">
@@ -106,18 +122,24 @@ U02HF1K3Q	Matthias Priem">
                         </dw:transform-message>
                     </otherwise>
                 </choice>
-            </when>
-            <when expression="#[flowVars.text=='items']">
-                <logger message="items" level="INFO" doc:name="items"/>
-            </when>
-            <when expression="#[flowVars.text == &quot;help&quot; || flowVars.text == &quot;what&quot; || flowVars.text == &quot;wat&quot; || flowVars.text == &quot;?&quot;]">
-                <logger message="help" level="INFO" doc:name="help"/>
-                <flow-ref name="avo_help" doc:name="avo_help"/>
-            </when>
-            <otherwise>
-                <flow-ref name="avo_help" doc:name="avo_help"/>
-            </otherwise>
-        </choice>
+    </sub-flow>
+    <sub-flow name="avo_items">
+        <http:request config-ref="API_GATEWAY" path="/api/assets/count" method="GET" doc:name="HTTP"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:input-payload doc:sample="sample_data/json_1.json"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"response_type": "in_channel",
+	text: ('*Items in AvO: *\n' ++ (payload.data mapObject (
+		'pair': {
+			'key': $$,
+			'value': $
+		}
+	) map ('>*' ++ capitalize $.key ++ '*: ' ++ $.value) joinBy "\n"))
+}]]></dw:set-payload>
+        </dw:transform-message>
     </sub-flow>
     <sub-flow name="avo_help">
         <logger message="Requested 'help'" level="INFO" doc:name="help"/>
@@ -128,8 +150,9 @@ U02HF1K3Q	Matthias Priem">
 {
 	"response_type": "in_channel",
 	"text": "*Available commands:*\n
->*help | ? | what | wat*: \n
->users"
+>*help | ? | what | wat*: get help on this command\n
+>*users*: get user counts from AvO\n
+> "
 }]]></dw:set-payload>
         </dw:transform-message>
     </sub-flow>
