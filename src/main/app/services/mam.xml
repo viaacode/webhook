@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:json="http://www.mulesoft.org/schema/mule/json"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" version="EE-3.9.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd 
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+
+    <sub-flow name="mam_routing">
+        <choice doc:name="What's the text?">
+            <when expression="#[flowVars.text=='vrt']">
+                <logger message="vrt" level="INFO" doc:name="vrt"/>
+                <dw:transform-message doc:name="Answer fast">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"response_type": "in_channel",
+	"text": "/mam vrt:"
+}]]></dw:set-payload>
+                </dw:transform-message>
+                <async doc:name="Async">
+                    <flow-ref name="RequestVRTDelay" doc:name="RequestVRTDelay"/>
+                </async>
+            </when>
+            <when expression="#[flowVars.text=='items']">
+                <logger message="items" level="INFO" doc:name="items"/>
+                <http:request config-ref="API_GATEWAY" path="/api/report/global" method="GET" doc:name="Request /api/report/global"/>
+                <byte-array-to-object-transformer doc:name="Byte Array to Object"/>
+                <json:json-to-object-transformer returnClass="java.util.HashMap" doc:name="JSON to Object"/>
+                <set-variable variableName="items" value="#[payload.get('data').get('archived').get('total').get('amount').get('ok')]" doc:name="Set items"/>
+                <set-variable variableName="petabytes" value="#[String.format(&quot;%.2f&quot;, (float) payload.get('data').get('archived').get('total').get('bytes').get('ok')/1024/1024/1024/1024/1024)]" doc:name="Set petabytes"/>
+                <dw:transform-message doc:name="Build response">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"response_type": "in_channel",
+	"text": "# items: " ++ flowVars.items ++ "\n# petabytes: " ++ flowVars.petabytes
+}]]></dw:set-payload>
+                </dw:transform-message>
+            </when>
+            <when expression="#[flowVars.text.contains('vrt') &amp;&amp; flowVars.text.length()&gt;3]">
+                <logger level="INFO" doc:name="vrt ID" message="vrt ID"/>
+                <set-variable variableName="id" value="#[flowVars.text.substring(flowVars.text.lastIndexOf('vrt ')+4)]" doc:name="Set id (media_id or pid)"/>
+                <http:request config-ref="API_GATEWAY" path="#['/api/vrt/' + flowVars.id]" method="GET" doc:name="Request /api/vrt/{id}"/>
+                <byte-array-to-object-transformer doc:name="Byte Array to Object"/>
+                <json:json-to-object-transformer returnClass="java.util.HashMap" doc:name="JSON to Object"/>
+                <set-variable variableName="pid" value="#[payload.get('data').get('pid') != null ? payload.get('data').get('pid').toString() : &quot;unknown&quot;]" doc:name="Set pid"/>
+                <set-variable variableName="media_id" value="#[payload.get('data').get('media_id') != null ? payload.get('data').get('media_id').toString() : &quot;unknown&quot;]" doc:name="Set media_id"/>
+                <set-variable variableName="status" value="#[payload.get('data').get('status') != null ? payload.get('data').get('status').toString() : &quot;unknown&quot;]" doc:name="Set status"/>
+                <dw:transform-message doc:name="Build response">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"response_type": "in_channel",
+	"text": "pid: " ++ flowVars.pid
+			 ++ "\nmedia_id: " ++ flowVars.media_id
+			 ++ "\nstatus: " ++ flowVars.status
+}]]></dw:set-payload>
+                </dw:transform-message>
+            </when>
+            <otherwise>
+                <dw:transform-message doc:name="Transform Message">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"response_type": "in_channel",
+	"text": "Unknown..."
+}]]></dw:set-payload>
+                </dw:transform-message>
+            </otherwise>
+        </choice>
+    </sub-flow>
+    <flow name="RequestVRTDelay">
+        <http:request config-ref="API_GATEWAY" path="/api/vrt/delay" method="GET" doc:name="Request /api/vrt/delay"/>
+        <byte-array-to-object-transformer doc:name="Byte Array to Object"/>
+        <json:json-to-object-transformer returnClass="java.util.HashMap" doc:name="JSON to Object"/>
+        <set-variable variableName="gemiddelde_starttijd" value="#[payload.get('data').get('gemiddelde_starttijd')]" doc:name="Set gemiddelde_starttijd"/>
+        <set-variable variableName="gemiddelde_duur" value="#[payload.get('data').get('gemiddelde_duur').get('value')]" doc:name="Set gemiddelde_duur"/>
+        <dw:transform-message doc:name="Build response">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"response_type": "in_channel",
+	"text": "Gemiddelde duur overdracht VRT - VIAA archief: " ++ flowVars.gemiddelde_duur ++ "\nOpvraagtijd van laatste geïngeste item: " ++ flowVars.gemiddelde_starttijd
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <object-to-string-transformer doc:name="Object to String"/>
+        <http:request config-ref="Slackwebhook" path="#[flowVars.response_url_path]" method="POST" doc:name="Send response to response_url just in case it takes longer than 3sec"/>
+    </flow>
+</mule>

@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" version="EE-3.9.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd 
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+
+    <sub-flow name="ams_routing">
+        <choice doc:name="Choice">
+            <when expression="#[flowVars.text.startsWith(&quot;btw&quot;)]">
+                <choice doc:name="Choice">
+                    <when expression="#[flowVars.text.matches(&quot;btw ([0-9]{4})&quot;)]">
+                        <set-variable variableName="startYear" value="#[java.lang.Integer.parseInt(flowVars.text.replaceAll(&quot;btw &quot;, &quot;&quot;))]" doc:name="Set startYear"/>
+                        <set-variable variableName="endYear" value="#[flowVars.startYear + 1]" doc:name="Set endYear"/>
+                        <async doc:name="Async">
+                            <db:select config-ref="AMS_MySQL" doc:name="Get all counts for all carrier types and all CPs">
+                                <db:parameterized-query><![CDATA[SELECT organizations.name as organisatie,
+     COUNT(
+         CASE
+            WHEN carrier_format.name = '1/4 inch open reel audio'
+            THEN 1
+            ELSE NULL
+        END
+    ) AS '1/4 inch open reel audio',
+    '' as '1/4 inch open reel audio prijs',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'Audiocassette'
+            THEN 1
+            ELSE NULL
+        END
+    ) AS 'Audiocassette',
+    '' as 'Audiocassette prijs',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'Betacam SP'
+            THEN 1
+            ELSE NULL
+        END
+    ) AS 'Betacam SP',
+    '' as 'Betacam SP prijs',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'U-Matic'
+            THEN 1
+            ELSE NULL
+        END
+    ) AS 'U-Matic',
+    '' as 'U-Matic prijs',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'Digital Betacam'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'Digital Betacam',
+    '' as 'Digital Betacam prijs',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'Betamax'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'Betamax',
+    '' as 'Betamax prijs',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'Betacam Oxide'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'Betacam Oxide',
+    '' as 'Betacam Oxide prijs',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'VCR'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'VCR',
+    '' as 'VCR prijs',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'CD-R'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'CD-R',
+    '' as 'CD-R prijs',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'wax cylinder'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'wax cylinder',
+    '' as 'wax cylinder prijs',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'wire recording'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'wire recording',
+    '' as 'wire recording prijs',
+    COUNT(
+        CASE
+            WHEN carrier_format.name IN('2 inch open reel video', '1 inch open reel video', '1/2 inch open reel video')
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'open reel video',
+    '' as 'open reel video prijs',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = '1/4 inch open reel video'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS '1/4 inch open reel video',
+    '' as '1/4 inch open reel video prijs',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'Betacam SX'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'Betacam SX',
+    '' as 'Betacam SX prijs',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'VHS'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'VHS',
+    '' as 'VHS prijs',
+    COUNT(
+        CASE
+            WHEN carrier_format.name = 'shellac and lacquer disc'
+            THEN 1
+            ELSE NULL
+            END
+    ) AS 'shellac and lacquer disc',
+    '' as 'shellac and lacquer disc prijs'
+FROM av_carrier
+LEFT JOIN carrier ON av_carrier.carrier_id = carrier.id
+LEFT JOIN carrier_format ON av_carrier.carrier_format_id = carrier_format.id
+LEFT JOIN organizations ON carrier.organization_id = organizations.id
+INNER JOIN events ON events.carrier_id = carrier.id
+AND events.event_lookup_id = 5
+AND events.event_outcome = 1
+AND events.event_date >= #[flowVars.startYear + "-01-01"]
+AND events.event_date < #[flowVars.endYear + "-01-01"]
+GROUP BY organizations.name
+ORDER BY organizations.name;]]></db:parameterized-query>
+                            </db:select>
+                            <expression-component doc:name="Set columns"><![CDATA[flowVars.columns = {"organisatie", "1/4 inch open reel audio", "1/4 inch open reel audio prijs", "Audiocassette", "Audiocassette prijs", "Betacam SP", "Betacam SP prijs", "U-Matic", "U-Matic prijs", "Digital Betacam", "Digital Betacam prijs", "Betamax", "Betamax prijs", "Betacam Oxide", "Betacam Oxide prijs", "VCR", "VCR prijs", "CD-R", "CD-R prijs", "wax cylinder", "wax cylinder prijs", "wire recording", "wire recording prijs", "open reel video", "open reel video prijs", "1/4 inch open reel video", "1/4 inch open reel video prijs", "Betacam SX", "Betacam SX prijs", "VHS", "VHS prijs", "shellac and lacquer disc", "shellac and lacquer disc prijs"};]]></expression-component>
+                            <dw:transform-message doc:name="Reformat response so columns are in the right order">
+                                <dw:set-variable variableName="file"><![CDATA[%dw 1.0
+%output application/csv
+---
+payload map using (row = $) {
+	(flowVars.columns map using (key = $) {
+		'$key': row[key]
+	})
+}]]></dw:set-variable>
+                            </dw:transform-message>
+                            <byte-array-to-string-transformer doc:name="Byte Array to String"/>
+                            <dw:transform-message doc:name="Create a file.upload body">
+                                <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+{
+	token: p('slack.postToken'),
+	content: flowVars.file,
+	filename: (now as :string { format: "ddMMyyyyHHmmss"}) ++ '_billing.csv',
+	channels: flowVars.user_id
+}]]></dw:set-payload>
+                            </dw:transform-message>
+                            <message-properties-transformer doc:name="Set Content-type to multipart/form-data">
+                                <add-message-property key="Content-type" value="multipart/form-data"/>
+                            </message-properties-transformer>
+                            <http:request config-ref="SlackAPI" path="/files.upload" method="POST" doc:name="Upload the file"/>
+                        </async>
+                        <dw:transform-message doc:name="Build response">
+                            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"text": 'The result will be sent to you via a direct message.'
+}]]></dw:set-payload>
+                        </dw:transform-message>
+                    </when>
+                    <otherwise>
+                        <dw:transform-message doc:name="Transform Message">
+                            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"text": 'The call was of an incorrect format. Example: /ams btw 2016'
+}]]></dw:set-payload>
+                        </dw:transform-message>
+                    </otherwise>
+                </choice>
+            </when>
+            <otherwise>
+                <dw:transform-message doc:name="Build response">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"response_type": "in_channel",
+	"text": "Coming soon!"
+}]]></dw:set-payload>
+                </dw:transform-message>
+            </otherwise>
+        </choice>
+    </sub-flow>
+
+
+</mule>
