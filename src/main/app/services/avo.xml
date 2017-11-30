@@ -151,8 +151,8 @@ U02HF1K3Q	Matthias Priem">
 	"response_type": "in_channel",
 	"text": "*Available commands:*\n
 >*help | ? | what | wat*: get help on this command\n
->*users*: get user counts from AvO\n
-> "
+>*users*: get user counts by type\n
+>*items*: get item counts by type"
 }]]></dw:set-payload>
         </dw:transform-message>
     </sub-flow>
