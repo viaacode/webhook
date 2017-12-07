@@ -14,7 +14,9 @@ http://www.springframework.org/schema/context http://www.springframework.org/sch
 http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
 http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
     <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="10005" doc:name="HTTP Listener Configuration"/>
-    <http:request-config name="API_GATEWAY" host="${api.host}" port="${api.port}" basePath="/" responseTimeout="30000" doc:name="HTTP Request Configuration" />
+    <http:request-config name="API_GATEWAY" host="${api.host}" port="${api.port}" basePath="/api" responseTimeout="30000" doc:name="HTTP Request Configuration" >
+        <http:raml-api-configuration location="http://do-prd-esb-01.do.viaa.be:10006/api/console/"/>
+    </http:request-config>
     <context:property-placeholder location="${mule.env}.properties"/>
     <http:request-config name="Slackwebhook" protocol="HTTPS" host="hooks.slack.com" port="443" basePath="/" doc:name="HTTP Request Configuration">
         <http:proxy host="${proxy.host}" port="80"/>

@@ -4,12 +4,12 @@
 	xmlns:http="http://www.mulesoft.org/schema/mule/http"
 	xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw"
 	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
-	xmlns:spring="http://www.springframework.org/schema/beans" version="EE-3.9.0"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="
-http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd 
-http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
-http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
 http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
 
     <sub-flow name="mam_routing">
@@ -31,7 +31,7 @@ http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/cor
             </when>
             <when expression="#[flowVars.text=='items']">
                 <logger message="items" level="INFO" doc:name="items"/>
-                <http:request config-ref="API_GATEWAY" path="/api/report/global" method="GET" doc:name="Request /api/report/global"/>
+                <http:request config-ref="API_GATEWAY" path="/report/global" method="GET" doc:name="Request /api/report/global"/>
                 <byte-array-to-object-transformer doc:name="Byte Array to Object"/>
                 <json:json-to-object-transformer returnClass="java.util.HashMap" doc:name="JSON to Object"/>
                 <set-variable variableName="items" value="#[payload.get('data').get('archived').get('total').get('amount').get('ok')]" doc:name="Set items"/>
@@ -49,7 +49,11 @@ http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/cor
             <when expression="#[flowVars.text.contains('vrt') &amp;&amp; flowVars.text.length()&gt;3]">
                 <logger level="INFO" doc:name="vrt ID" message="vrt ID"/>
                 <set-variable variableName="id" value="#[flowVars.text.substring(flowVars.text.lastIndexOf('vrt ')+4)]" doc:name="Set id (media_id or pid)"/>
-                <http:request config-ref="API_GATEWAY" path="#['/api/vrt/' + flowVars.id]" method="GET" doc:name="Request /api/vrt/{id}"/>
+                <http:request config-ref="API_GATEWAY" path="/vrt/{id}" method="GET" doc:name="Request /api/vrt/{id}">
+                    <http:request-builder>
+                        <http:uri-param paramName="id" value="#[flowVars.id]"/>
+                    </http:request-builder>
+                </http:request>
                 <byte-array-to-object-transformer doc:name="Byte Array to Object"/>
                 <json:json-to-object-transformer returnClass="java.util.HashMap" doc:name="JSON to Object"/>
                 <set-variable variableName="pid" value="#[payload.get('data').get('pid') != null ? payload.get('data').get('pid').toString() : &quot;unknown&quot;]" doc:name="Set pid"/>
@@ -81,7 +85,7 @@ http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/cor
         </choice>
     </sub-flow>
     <flow name="RequestVRTDelay">
-        <http:request config-ref="API_GATEWAY" path="/api/vrt/delay" method="GET" doc:name="Request /api/vrt/delay"/>
+        <http:request config-ref="API_GATEWAY" path="/vrt/delay" method="GET" doc:name="Request /api/vrt/delay"/>
         <byte-array-to-object-transformer doc:name="Byte Array to Object"/>
         <json:json-to-object-transformer returnClass="java.util.HashMap" doc:name="JSON to Object"/>
         <set-variable variableName="gemiddelde_starttijd" value="#[payload.get('data').get('gemiddelde_starttijd')]" doc:name="Set gemiddelde_starttijd"/>
