@@ -92,17 +92,21 @@ U02HF1K3Q	Matthias Priem">
                                 <dw:input-payload />
                                 <dw:input-variable doc:sample="sample_data/json_5.json" variableName="active"/>
                                 <dw:input-variable doc:sample="sample_data/json_6.json" variableName="registered"/>
-                                <dw:set-variable variableName="message"><![CDATA[%dw 1.0
-%output application/java
+                                <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
 ---
-('*Ratio active/inactive in AvO: *\n' ++ (flowVars.active.data mapObject (
+{
+	"response_type": "ephemeral",
+	"text": ('*Ratio active/inactive in AvO: *\n' ++ (flowVars.active.data mapObject (
                'pair': {
                        'key': $$,
                        'value': ($ / flowVars.registered.data.'$$'
                        )
                }
-       ) map ('>*' ++ capitalize $.key ++ '*: ' ++ ($.value as :string { format: '##.##' })) joinBy "\n"))]]></dw:set-variable>
+       ) map ('>*' ++ capitalize $.key ++ '*: ' ++ ($.value as :string { format: '##.##' })) joinBy "\n"))
+}]]></dw:set-payload>
                             </dw:transform-message>
+                            <object-to-string-transformer doc:name="Object to String"/>
                             <http:request config-ref="Slackwebhook" path="#[flowVars.response_url_path]" method="POST" doc:name="Send response to response_url just in case it takes longer than 3sec"/>
                         </async>
                     </when>
@@ -112,16 +116,20 @@ U02HF1K3Q	Matthias Priem">
                         	<http:request config-ref="API_GATEWAY" path="/users/count/registered" method="GET" doc:name="Request /api/users/count"/>
                             <dw:transform-message doc:name="Transform Message">
                                 <dw:input-payload doc:sample="sample_data/json.json"/>
-                                <dw:set-variable variableName="message"><![CDATA[%dw 1.0
-%output application/java
+                                <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
 ---
-('*Registered users in AvO: *\n' ++ (payload.data mapObject (
+{
+	"response_type": "ephemeral",
+	text: ('*Registered users in AvO: *\n' ++ (payload.data mapObject (
                'pair': {
                        'key': $$,
                        'value': $
                }
-       ) map ('>*' ++ capitalize $.key ++ '*: ' ++ $.value) joinBy "\n"))]]></dw:set-variable>
+       ) map ('>*' ++ capitalize $.key ++ '*: ' ++ $.value) joinBy "\n"))
+}]]></dw:set-payload>
                             </dw:transform-message>
+                            <object-to-string-transformer doc:name="Object to String"/>
                             <http:request config-ref="Slackwebhook" path="#[flowVars.response_url_path]" method="POST" doc:name="Send response to response_url just in case it takes longer than 3sec"/>
                         </async>
                     </when>
@@ -131,23 +139,27 @@ U02HF1K3Q	Matthias Priem">
                             <http:request config-ref="API_GATEWAY" path="/users/count/active" method="GET" doc:name="Request /api/users/count"/>
                             <dw:transform-message doc:name="Transform Message">
                                 <dw:input-payload doc:sample="sample_data/json.json"/>
-                                <dw:set-variable variableName="message"><![CDATA[%dw 1.0
-%output application/java
+                                <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
 ---
-('*Users in AvO: *\n' ++ (payload.data mapObject (
+{
+	"response_type": "ephemeral",
+	"text": ('*Active users in AvO: *\n' ++ (payload.data mapObject (
                'pair': {
                        'key': $$,
                        'value': $
                }
-       ) map ('>*' ++ capitalize $.key ++ '*: ' ++ $.value) joinBy "\n"))]]></dw:set-variable>
+       ) map ('>*' ++ capitalize $.key ++ '*: ' ++ $.value) joinBy "\n"))
+}]]></dw:set-payload>
                             </dw:transform-message>
+                            <object-to-string-transformer doc:name="Object to String"/>
                             <http:request config-ref="Slackwebhook" path="#[flowVars.response_url_path]" method="POST" doc:name="Send response to response_url just in case it takes longer than 3sec"/>
                         </async>
                     </when>
                     <otherwise>
                         <dw:transform-message doc:name="Transform Message">
                             <dw:set-payload><![CDATA[%dw 1.0
-%output application/java
+%output application/json
 ---
 {
 	"response_type": "ephemeral",
@@ -190,6 +202,7 @@ U02HF1K3Q	Matthias Priem">
 	) filter using (name = $.key) ('$name' == '$keyToGet') map ('>*' ++ capitalize $.key ++ '*: ' ++ $.value) joinBy "\n"))
 }]]></dw:set-payload>
             </dw:transform-message>
+            <object-to-string-transformer doc:name="Object to String"/>
             <http:request config-ref="Slackwebhook" path="#[flowVars.response_url_path]" method="POST" doc:name="Send response to response_url just in case it takes longer than 3sec"/>
         </async>
     </sub-flow>
@@ -212,6 +225,7 @@ U02HF1K3Q	Matthias Priem">
 	) filter using (name = $.key) ('$name' == '$keyToGet') map ('>*' ++ capitalize $.key ++ '*: ' ++ $.value) joinBy "\n"))
 }]]></dw:set-payload>
             </dw:transform-message>
+            <object-to-string-transformer doc:name="Object to String"/>
             <http:request config-ref="Slackwebhook" path="#[flowVars.response_url_path]" method="POST" doc:name="Send response to response_url just in case it takes longer than 3sec"/>
         </async>
     </sub-flow>
@@ -237,6 +251,7 @@ U02HF1K3Q	Matthias Priem">
 	) filter using (name = $.key) (keysToGet contains '$name') map ('>*' ++ capitalize $.key ++ '*: ' ++ $.value) joinBy "\n"))
 }]]></dw:set-payload>
             </dw:transform-message>
+            <object-to-string-transformer doc:name="Object to String"/>
             <http:request config-ref="Slackwebhook" path="#[flowVars.response_url_path]" method="POST" doc:name="Send response to response_url just in case it takes longer than 3sec"/>
         </async>
     </sub-flow>
