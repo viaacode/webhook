@@ -35,7 +35,7 @@ http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/cu
         <set-variable variableName="user_id" value="#[payload.user_id]" doc:name="Set user_id"/>
         <set-variable variableName="token" value="#[payload['token']!=null ? payload['token'] : '']" doc:name="Set token"/>
         <set-variable variableName="token_slack" value="${slack.token}" doc:name="Set token_slack"/>
-        <set-variable variableName="command" value="#[payload['command']]" doc:name="Set command"/>
+        <set-variable variableName="command" value="#['${mule.env}' == 'staging' ? payload['command'].replace(&quot;qas&quot;, &quot;&quot;) : payload['command']]" doc:name="Set command (replace qas)"/>
         <set-variable variableName="text" value="#[payload['text']]" doc:name="Set text"/>
         <set-variable variableName="response_url" value="#[payload['response_url']]" doc:name="Set response_url (in case longer than 3 seconds to generate response)"/>
         <set-variable variableName="response_url_path" value="#[flowVars.response_url.substring(flowVars.response_url.indexOf('commands'))]" doc:name="Set response_url_path"/>
