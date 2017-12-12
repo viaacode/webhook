@@ -12,7 +12,7 @@ http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/cor
 http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
 	<sub-flow name="avo_routing">
         <choice doc:name="What's the text?">
-            <when expression="#[flowVars.text=='registraties']">
+            <when expression="#[flowVars.text.startsWith('registraties')]">
                 <logger message="registraties" level="INFO" doc:name="registraties"/>
                 <dw:transform-message doc:name="Transform Message">
                     <dw:set-payload><![CDATA[%dw 1.0
@@ -24,7 +24,7 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
 }]]></dw:set-payload>
                 </dw:transform-message>
             </when>
-            <when expression="#[flowVars.text=='plays']">
+            <when expression="#[flowVars.text.startsWith('plays')]">
                 <logger message="plays" level="INFO" doc:name="plays"/>
                 <dw:transform-message doc:name="Transform Message">
                     <dw:set-payload><![CDATA[%dw 1.0
@@ -36,11 +36,11 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
 }]]></dw:set-payload>
                 </dw:transform-message>
             </when>
-            <when expression="#[flowVars.text=='collecties']">
+            <when expression="#[flowVars.text.startsWith('collecties')]">
                 <logger message="collecties" level="INFO" doc:name="collecties"/>
                 <flow-ref name="avo_collecties" doc:name="Flow Reference"/>
             </when>
-            <when expression="#[flowVars.text=='trefwoorden']">
+            <when expression="#[flowVars.text.startsWith('trefwoorden')]">
                 <logger message="trefwoorden" level="INFO" doc:name="trefwoorden"/>
                 <dw:transform-message doc:name="Transform Message">
                     <dw:set-payload><![CDATA[%dw 1.0
@@ -52,11 +52,11 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
 }]]></dw:set-payload>
                 </dw:transform-message>
             </when>
-            <when expression="#[flowVars.text=='users']">
+            <when expression="#[flowVars.text.startsWith('users')]">
                 <logger message="Text: #[flowVars.text]" level="INFO" doc:name="users"/>
                 <flow-ref name="avo_users_routing" doc:name="avo_users_routing"></flow-ref>
             </when>
-            <when expression="#[flowVars.text=='items']">
+            <when expression="#[flowVars.text.startsWith('items')]">
                 <logger message="items" level="INFO" doc:name="items"/>
                 <flow-ref name="avo_items" doc:name="avo_items"/>
             </when>
@@ -64,7 +64,7 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
                 <logger message="help" level="INFO" doc:name="help"/>
                 <flow-ref name="avo_help" doc:name="avo_help"/>
             </when>
-            <when expression="#[flowVars.text == &quot;themas&quot;]">
+            <when expression="#[flowVars.text.startsWith('themas')]">
                 <logger message="themas" level="INFO" doc:name="themas"/>
                 <flow-ref name="avo_themas" doc:name="avo_themas"/>
             </when>
@@ -74,36 +74,88 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
         </choice>
     </sub-flow>
     <sub-flow name="avo_users_routing">
+        <set-variable variableName="text" value="#[flowVars.text.replace(&quot;users &quot;, &quot;&quot;)]" doc:name="Set text"/>
     	<choice doc:name="Is this user authorized to call this function? (See notes)" doc:description="U02HS2XND       Leen De Bruyn U02HE0C8D       Bart Debunne U0ND8MVMK       Brecht Van de Vyvere U2FS6MK27       Dieter Van Hoof U02HE1QSZ       Nico  Verplancke U02J6K91Z       Karen vander Plaetse U4TDQ4WM9       Claire Denoyette
 U02HF1K3Q	Matthias Priem">
                     <when expression="#[flowVars.user_id.equals(&quot;U02HS2XND&quot;) || flowVars.user_id.equals(&quot;U02HE0C8D&quot;) || flowVars.user_id.equals(&quot;U0ND8MVMK&quot;) || flowVars.user_id.equals(&quot;U02J6K91Z&quot;) || flowVars.user_id.equals(&quot;U2FS6MK27&quot;) || flowVars.user_id.equals(&quot;U02HE1QSZ&quot;) || flowVars.user_id.equals(&quot;U4TDQ4WM9&quot;) || flowVars.user_id.equals(&quot;U02HF1K3Q&quot;)]">
+                <choice doc:name="Choice">
+                    <when expression="#[flowVars.text == 'ratio']">
+                        <logger message="ratio" level="INFO" doc:name="ratio"/>
                         <async doc:name="Async">
-                    <http:request config-ref="API_GATEWAY" path="/users/count" method="GET" doc:name="Request /api/users/count"/>
+                            <enricher doc:name="Set active" target="#[flowVars.active]">
+                                <http:request config-ref="API_GATEWAY" path="/users/count/active" method="GET" doc:name="Request /users/count/active"/>
+                            </enricher>
+                            <enricher doc:name="Set registered" target="#[flowVars.registered]">
+                                <http:request config-ref="API_GATEWAY" path="/users/count/registered" method="GET" doc:name="Request /users/count/registered"/>
+                            </enricher>
+                            <dw:transform-message doc:name="Transform Message">
+                                <dw:input-payload />
+                                <dw:input-variable doc:sample="sample_data/json_5.json" variableName="active"/>
+                                <dw:input-variable doc:sample="sample_data/json_6.json" variableName="registered"/>
+                                <dw:set-variable variableName="message"><![CDATA[%dw 1.0
+%output application/java
+---
+('*Ratio active/inactive in AvO: *\n' ++ (flowVars.active.data mapObject (
+               'pair': {
+                       'key': $$,
+                       'value': ($ / flowVars.registered.data.'$$'
+                       )
+               }
+       ) map ('>*' ++ capitalize $.key ++ '*: ' ++ ($.value as :string { format: '##.##' })) joinBy "\n"))]]></dw:set-variable>
+                            </dw:transform-message>
+                            <http:request config-ref="Slackwebhook" path="#[flowVars.response_url_path]" method="POST" doc:name="Send response to response_url just in case it takes longer than 3sec"/>
+                        </async>
+                    </when>
+                    <when expression="#[flowVars.text == 'registered']">
+                        <logger message="registered" level="INFO" doc:name="registered"/>
+                        <async doc:name="Async">
+                        	<http:request config-ref="API_GATEWAY" path="/users/count/registered" method="GET" doc:name="Request /api/users/count"/>
+                            <dw:transform-message doc:name="Transform Message">
+                                <dw:input-payload doc:sample="sample_data/json.json"/>
+                                <dw:set-variable variableName="message"><![CDATA[%dw 1.0
+%output application/java
+---
+('*Registered users in AvO: *\n' ++ (payload.data mapObject (
+               'pair': {
+                       'key': $$,
+                       'value': $
+               }
+       ) map ('>*' ++ capitalize $.key ++ '*: ' ++ $.value) joinBy "\n"))]]></dw:set-variable>
+                            </dw:transform-message>
+                            <http:request config-ref="Slackwebhook" path="#[flowVars.response_url_path]" method="POST" doc:name="Send response to response_url just in case it takes longer than 3sec"/>
+                        </async>
+                    </when>
+                    <when expression="#[flowVars.text == 'active']">
+                        <async doc:name="Async">
+                            <logger message="active" level="INFO" doc:name="active"/>
+                            <http:request config-ref="API_GATEWAY" path="/users/count/active" method="GET" doc:name="Request /api/users/count"/>
                             <dw:transform-message doc:name="Transform Message">
                                 <dw:input-payload doc:sample="sample_data/json.json"/>
                                 <dw:set-variable variableName="message"><![CDATA[%dw 1.0
 %output application/java
 ---
 ('*Users in AvO: *\n' ++ (payload.data mapObject (
-		'pair': {
-			'key': $$,
-			'value': $
-		}
-	) map ('>*' ++ capitalize $.key ++ '*: ' ++ $.value) joinBy "\n"))]]></dw:set-variable>
+               'pair': {
+                       'key': $$,
+                       'value': $
+               }
+       ) map ('>*' ++ capitalize $.key ++ '*: ' ++ $.value) joinBy "\n"))]]></dw:set-variable>
                             </dw:transform-message>
-                            <http:request config-ref="SlackAPI" path="/chat.postMessage" method="POST" doc:name="Post to slack">
-                                <http:request-builder>
-                                    <http:query-param paramName="token" value="${slack.postToken}"/>
-                                    <http:query-param paramName="as_user" value="false"/>
-                                    <http:query-param paramName="username" value="AvoBot"/>
-                                    <http:query-param paramName="channel" value="#[flowVars.user_id]"/>
-                                    <http:query-param paramName="text" value="#[flowVars.message]"/>
-                                    <http:query-param paramName="mrkdwn" value="true"/>
-                                    <http:header headerName="Content-Type" value="application/json"/>
-                                </http:request-builder>
-                            </http:request>
+                            <http:request config-ref="Slackwebhook" path="#[flowVars.response_url_path]" method="POST" doc:name="Send response to response_url just in case it takes longer than 3sec"/>
                         </async>
-                        <set-payload value="#[&quot;&quot;]" doc:name="Set Payload"/>
+                    </when>
+                    <otherwise>
+                        <dw:transform-message doc:name="Transform Message">
+                            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+{
+	"response_type": "ephemeral",
+	"text": "Voeg een extra parameter toe aan /avo users"
+}]]></dw:set-payload>
+                        </dw:transform-message>
+                    </otherwise>
+                </choice>
                     </when>
                     <otherwise>
                         <logger message="User #[flowVars.user_id] has no access to the AvO users command." level="WARN" doc:name="Logger"/>
@@ -120,10 +172,11 @@ U02HF1K3Q	Matthias Priem">
                 </choice>
     </sub-flow>
     <sub-flow name="avo_collecties">
-        <flow-ref name="avoGetAssets" doc:name="avoGetAssets"/>
-        <dw:transform-message doc:name="Transform Message">
-            <dw:input-payload doc:sample="sample_data/json_2.json"/>
-            <dw:set-payload><![CDATA[%dw 1.0
+        <async doc:name="Async">
+            <flow-ref name="avoGetAssets" doc:name="avoGetAssets"/>
+            <dw:transform-message doc:name="Transform Message">
+                <dw:input-payload doc:sample="sample_data/json_2.json"/>
+                <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 %var keyToGet = 'collectie'
 ---
@@ -136,13 +189,16 @@ U02HF1K3Q	Matthias Priem">
 		}
 	) filter using (name = $.key) ('$name' == '$keyToGet') map ('>*' ++ capitalize $.key ++ '*: ' ++ $.value) joinBy "\n"))
 }]]></dw:set-payload>
-        </dw:transform-message>
+            </dw:transform-message>
+            <http:request config-ref="Slackwebhook" path="#[flowVars.response_url_path]" method="POST" doc:name="Send response to response_url just in case it takes longer than 3sec"/>
+        </async>
     </sub-flow>
     <sub-flow name="avo_themas">
-        <flow-ref name="avoGetAssets" doc:name="avoGetAssets"/>
-        <dw:transform-message doc:name="Transform Message">
-            <dw:input-payload doc:sample="sample_data/json_2.json"/>
-            <dw:set-payload><![CDATA[%dw 1.0
+        <async doc:name="Async">
+            <flow-ref name="avoGetAssets" doc:name="avoGetAssets"/>
+            <dw:transform-message doc:name="Transform Message">
+                <dw:input-payload doc:sample="sample_data/json_2.json"/>
+                <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 %var keyToGet = 'thema'
 ---
@@ -155,16 +211,19 @@ U02HF1K3Q	Matthias Priem">
 		}
 	) filter using (name = $.key) ('$name' == '$keyToGet') map ('>*' ++ capitalize $.key ++ '*: ' ++ $.value) joinBy "\n"))
 }]]></dw:set-payload>
-        </dw:transform-message>
+            </dw:transform-message>
+            <http:request config-ref="Slackwebhook" path="#[flowVars.response_url_path]" method="POST" doc:name="Send response to response_url just in case it takes longer than 3sec"/>
+        </async>
     </sub-flow>
     <sub-flow name="avoGetAssets">
         <http:request config-ref="API_GATEWAY" path="/assets/count" method="GET" doc:name="Request /assets/count"/>
     </sub-flow>
     <sub-flow name="avo_items">
-        <flow-ref name="avoGetAssets" doc:name="avoGetAssets"/>
-        <dw:transform-message doc:name="Transform Message">
-            <dw:input-payload doc:sample="sample_data/json_1.json"/>
-            <dw:set-payload><![CDATA[%dw 1.0
+        <async doc:name="Async">
+            <flow-ref name="avoGetAssets" doc:name="avoGetAssets"/>
+            <dw:transform-message doc:name="Transform Message">
+                <dw:input-payload doc:sample="sample_data/json_1.json"/>
+                <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 %var keysToGet = ['video', 'audio']
 ---
@@ -177,17 +236,9 @@ U02HF1K3Q	Matthias Priem">
 		}
 	) filter using (name = $.key) (keysToGet contains '$name') map ('>*' ++ capitalize $.key ++ '*: ' ++ $.value) joinBy "\n"))
 }]]></dw:set-payload>
-            <dw:set-variable variableName="test"><![CDATA[%dw 1.0
-%output application/json
-%var keysToGet = ['video', 'audio']
----
-(payload.data mapObject (
-		'pair': {
-			'key': $$,
-			'value': $
-		}
-	) )]]></dw:set-variable>
-        </dw:transform-message>
+            </dw:transform-message>
+            <http:request config-ref="Slackwebhook" path="#[flowVars.response_url_path]" method="POST" doc:name="Send response to response_url just in case it takes longer than 3sec"/>
+        </async>
     </sub-flow>
     <sub-flow name="avo_help">
         <logger message="Requested 'help'" level="INFO" doc:name="help"/>
@@ -200,7 +251,9 @@ U02HF1K3Q	Matthias Priem">
 	"text": "*Available commands:*\n
 >*help | ? | what | wat*: get help on this command\n
 >*users*: get user counts by type\n
->*items*: get item counts by type"
+>*items*: get item counts by type\n
+>*collecties*: get # of collections\n
+>*themas*: get # of themas"
 }]]></dw:set-payload>
         </dw:transform-message>
     </sub-flow>

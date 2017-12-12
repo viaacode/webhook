@@ -41,14 +41,15 @@ http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/cu
         <set-variable variableName="response_url_path" value="#[flowVars.response_url.substring(flowVars.response_url.indexOf('commands'))]" doc:name="Set response_url_path"/>
         <choice doc:name="/avo , /mam or /ams ?">
             <when expression="#[flowVars.command.equals('/ams')]">
-                <flow-ref name="ams_routing" doc:name="AMS Routing"/>
+                <flow-ref name="ams_routing" doc:name="avo_routing"/>
             </when>
             <when expression="#[flowVars.command.equals('/mam')]">
-                <flow-ref name="mam_routing" doc:name="MAM Routing"/>
+                <flow-ref name="mam_routing" doc:name="mam_routing"/>
             </when>
             <otherwise>
-                <flow-ref name="avo_routing" doc:name="AVO Routing"/>
+                <flow-ref name="avo_routing" doc:name="avo_routing"/>
             </otherwise>
         </choice>
+        <set-payload value="#[&quot;&quot;]" doc:name="Set Payload empty"/>
     </flow>
 </mule>
