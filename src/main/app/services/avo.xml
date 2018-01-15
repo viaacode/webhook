@@ -75,10 +75,9 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
     </sub-flow>
     <sub-flow name="avo_users_routing">
         <set-variable variableName="text" value="#[flowVars.text.contains(&quot;users &quot;) ? flowVars.text.replace(&quot;users &quot;, &quot;&quot;) : flowVars.text.replace(&quot;users&quot;, &quot;&quot;)]" doc:name="Set text"/>
-    	<choice doc:name="Is this user authorized to call this function? (See notes)" doc:description="U02HS2XND       Leen De Bruyn U02HE0C8D       Bart Debunne U0ND8MVMK       Brecht Van de Vyvere U2FS6MK27       Dieter Van Hoof U02HE1QSZ       Nico  Verplancke U02J6K91Z       Karen vander Plaetse U4TDQ4WM9       Claire Denoyette
-U02HF1K3Q	Matthias Priem">
-                    <when expression="#[flowVars.user_id.equals(&quot;U02HS2XND&quot;) || flowVars.user_id.equals(&quot;U02HE0C8D&quot;) || flowVars.user_id.equals(&quot;U0ND8MVMK&quot;) || flowVars.user_id.equals(&quot;U02J6K91Z&quot;) || flowVars.user_id.equals(&quot;U2FS6MK27&quot;) || flowVars.user_id.equals(&quot;U02HE1QSZ&quot;) || flowVars.user_id.equals(&quot;U4TDQ4WM9&quot;) || flowVars.user_id.equals(&quot;U02HF1K3Q&quot;)]">
-                <choice doc:name="Choice">
+	<choice doc:name="Is this user authorized to call this function? (See notes)" doc:description="U02HS2XND: Leen De Bruyn - U02HE0C8D: Bart Debunne - U0ND8MVMK: Brecht Van de Vyvere - U2FS6MK27: Dieter Van Hoof - U02HE1QSZ: Nico  Verplancke - U02J6K91Z: Karen vander Plaetse - U4TDQ4WM9: Claire Denoyette - U02HF1K3Q Matthias Priem - U8RV1GRKN: Marc Vermeulen">
+		<when expression="#[flowVars.user_id.equals(&quot;U02HS2XND&quot;) || flowVars.user_id.equals(&quot;U02HE0C8D&quot;) || flowVars.user_id.equals(&quot;U0ND8MVMK&quot;) || flowVars.user_id.equals(&quot;U02J6K91Z&quot;) || flowVars.user_id.equals(&quot;U2FS6MK27&quot;) || flowVars.user_id.equals(&quot;U02HE1QSZ&quot;) || flowVars.user_id.equals(&quot;U4TDQ4WM9&quot;) || flowVars.user_id.equals(&quot;U02HF1K3Q&quot;) || flowVars.user_id.equals(&quot;U8RV1GRKN&quot;)]">
+		<choice doc:name="Choice">
                     <when expression="#[flowVars.text == 'ratio']">
                         <logger message="ratio" level="INFO" doc:name="ratio"/>
                         <async doc:name="Async">
