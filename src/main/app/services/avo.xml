@@ -224,7 +224,7 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
 			'key': $$,
 			'value': $
 		}
-	) filter using (name = $.key) ('$name' == '$keyToGet') map ('>*' ++ capitalize $.key ++ '*: ' ++ $.value) joinBy "\n"))
+	) filter using (name = $.key) ('$name' == '$keyToGet') map ('>*' ++ capitalize $.key ++ 's op AvO' ++ '*: ' ++ $.value) joinBy "\n"))
 }]]></dw:set-payload>
             </dw:transform-message>
             <object-to-string-transformer doc:name="Object to String"/>
@@ -250,7 +250,7 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
 			'key': $$,
 			'value': $
 		}
-	) filter using (name = $.key) (keysToGet contains '$name') map ('>*' ++ capitalize $.key ++ '*: ' ++ $.value) joinBy "\n"))
+	) filter using (name = $.key) (keysToGet contains '$name') map ('>*' ++ capitalize $.key ++ 'fragmenten op AvO' ++ '*: ' ++ $.value) joinBy "\n"))
 }]]></dw:set-payload>
             </dw:transform-message>
             <object-to-string-transformer doc:name="Object to String"/>
