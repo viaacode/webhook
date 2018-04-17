@@ -36,8 +36,8 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
 }]]></dw:set-payload>
                 </dw:transform-message>
             </when>
-            <when expression="#[flowVars.text.startsWith('collecties')]">
-                <logger message="collecties" level="INFO" doc:name="collecties"/>
+            <when expression="#[flowVars.text.startsWith('collections')]">
+                <logger message="collections" level="INFO" doc:name="collections"/>
                 <flow-ref name="avo_collecties" doc:name="Flow Reference"/>
             </when>
             <when expression="#[flowVars.text.startsWith('trefwoorden')]">
@@ -64,8 +64,8 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
                 <logger message="help" level="INFO" doc:name="help"/>
                 <flow-ref name="avo_help" doc:name="avo_help"/>
             </when>
-            <when expression="#[flowVars.text.startsWith('themas')]">
-                <logger message="themas" level="INFO" doc:name="themas"/>
+            <when expression="#[flowVars.text.startsWith('themes')]">
+                <logger message="themes" level="INFO" doc:name="themes"/>
                 <flow-ref name="avo_themas" doc:name="avo_themas"/>
             </when>
             <otherwise>
@@ -120,7 +120,7 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
 ---
 {
 	"response_type": "ephemeral",
-	text: ('*Registered users in AvO: *\n' ++ (payload.data mapObject (
+	text: ('*Registered users in AvO: *\n' ++ ((payload.data orderBy $)[-1..0] mapObject (
                'pair': {
                        'key': $$,
                        'value': $
@@ -133,8 +133,8 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
                         </async>
                     </when>
                     <when expression="#[flowVars.text == 'active']">
+                        <logger message="active" level="INFO" doc:name="active"/>
                         <async doc:name="Async">
-                            <logger message="active" level="INFO" doc:name="active"/>
                             <http:request config-ref="API_GATEWAY" path="/users/count/active" method="GET" doc:name="Request /api/users/count"/>
                             <dw:transform-message doc:name="Transform Message">
                                 <dw:input-payload doc:sample="sample_data/json.json"/>
@@ -143,7 +143,30 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
 ---
 {
 	"response_type": "ephemeral",
-	"text": ('*Active users in AvO: *\n' ++ (payload.data mapObject (
+	"text": ('*Active users in AvO: *\n' ++ ((payload.data orderBy $)[-1..0] mapObject (
+               'pair': {
+                       'key': $$,
+                       'value': $
+               }
+       ) map ('>*' ++ capitalize $.key ++ '*: ' ++ $.value) joinBy "\n"))
+}]]></dw:set-payload>
+                            </dw:transform-message>
+                            <object-to-string-transformer doc:name="Object to String"/>
+                            <http:request config-ref="Slackwebhook" path="#[flowVars.response_url_path]" method="POST" doc:name="Send response to response_url just in case it takes longer than 3sec"/>
+                        </async>
+                    </when>
+                    <when expression="#[flowVars.text == 'engaged']">
+                        <logger message="engaged" level="INFO" doc:name="engaged"/>
+                        <async doc:name="Async">
+                        	<http:request config-ref="API_GATEWAY" path="/users/count/engaged" method="GET" doc:name="Request /api/users/engaged"/>
+                            <dw:transform-message doc:name="Transform Message">
+                                <dw:input-payload doc:sample="sample_data/json.json"/>
+                                <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	"response_type": "ephemeral",
+	"text": ('*Engaged users in AvO: *\n' ++ ((payload.data orderBy $)[-1..0] mapObject (
                'pair': {
                        'key': $$,
                        'value': $
@@ -224,7 +247,7 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
 			'key': $$,
 			'value': $
 		}
-	) filter using (name = $.key) ('$name' == '$keyToGet') map ('>*' ++ capitalize $.key ++ 's op AvO' ++ '*: ' ++ $.value) joinBy "\n"))
+	) filter using (name = $.key) ('$name' == '$keyToGet') map ('>*' ++ capitalize $.key ++ 's gepubliceerd op AvO' ++ '*: ' ++ $.value) joinBy "\n"))
 }]]></dw:set-payload>
             </dw:transform-message>
             <object-to-string-transformer doc:name="Object to String"/>
@@ -250,7 +273,7 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
 			'key': $$,
 			'value': $
 		}
-	) filter using (name = $.key) (keysToGet contains '$name') map ('>*' ++ capitalize $.key ++ 'fragmenten op AvO' ++ '*: ' ++ $.value) joinBy "\n"))
+	) filter using (name = $.key) (keysToGet contains '$name') map ('>*' ++ capitalize $.key ++ 'fragmenten gepubliceerd op AvO' ++ '*: ' ++ $.value) joinBy "\n"))
 }]]></dw:set-payload>
             </dw:transform-message>
             <object-to-string-transformer doc:name="Object to String"/>
@@ -267,10 +290,10 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
 	"response_type": "in_channel",
 	"text": "*Available commands:*\n
 >*help | ? | what | wat*: get help on this command\n
->*users [active | registered | ratio]*: get user counts by type\n
+>*users [active | registered | ratio | engaged]*: get user counts by type\n
 >*items*: get item counts by type\n
->*collecties*: get # of collections\n
->*themas*: get # of themas"
+>*collections*: get # of collections\n
+>*themem*: get # of themas"
 }]]></dw:set-payload>
         </dw:transform-message>
         <http:request config-ref="Slackwebhook" path="#[flowVars.response_url_path]" method="POST" doc:name="Send response to response_url just in case it takes longer than 3sec"/>
